@@ -2,6 +2,8 @@ clear all
 close all
 clc
 
+tic
+
 % data defines path to input images needed for SLCS reconstruction and
 % utilities defines path to misc functions used in SLCS algorithm
 addpath('data');
@@ -137,7 +139,7 @@ crop_masks.block_size=8;
 % variable that holds sum of all 4 phases in our ROI - image reconstruction
 summed_measurements_image=0;
 
-parfor phase_no=1:no_of_phases
+for phase_no=1:no_of_phases
     for bbox_no=1:size(bounding_box{phase_no},1)
         % define active block for processing using ROIs detected by blob
         % detection algorithm - crop real measurements
@@ -240,7 +242,6 @@ parfor phase_no=1:no_of_phases
         B=exp(inv_gamma_function(2));
               
         
-
         synth_calib_mask_number_of_ones_inv=B*(calib_measurement_avg_value.^lambda);
         
         % plot inverse gamma correction funcrion
@@ -325,7 +326,7 @@ parfor phase_no=1:no_of_phases
         % Reconstructing initial signal
         cvx_solver sedumi
         
-        cvx_begin
+        cvx_begin quiet
         cvx_precision high
         
         variable s_est(64, 1);
@@ -402,3 +403,5 @@ I2 = blockproc(bzvz,[8 8],fun);
 figure
 imagesc(I2)
 colormap gray
+
+toc
