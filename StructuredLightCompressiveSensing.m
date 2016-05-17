@@ -99,93 +99,16 @@ load calib_measurements
 load measurements
 
 %% BLOB DETECTION AND PROCESSING
+% using morphological operations and blob detection algorithm to detect
+% bounding boxes of each and every measurement mask in image
 
-% variable that holds sum of all 4 phases in our ROI - image reconstruction
-image_whole=0;
-
-% for each phase do:
-for no_phase=1:no_of_phases
-    % load calibration image with all pixels in 8x8 square switched on -
-    % easier crop
-    image{no_phase}=im2double(calib_measurements{no_phase}{1}{64}-average_background_noise);
+for phase_no=1:no_of_phases
+    % load calibration image with all pixels in 8x8 square switched on for
+    % easier bounding rectangle detection and easier crop
+    image{phase_no}=im2double(calib_measurements{phase_no}{1}{64}-average_background_noise);
     
-    % use morphological operations on "white" calibration image so whole
-    % ROI is covered by blob detection algorithm
-    se_dilate=strel('square', 8);  
-    image_dilate{no_phase}=imdilate(image{no_phase}, se_dilate);
-    
-%     se_erode=strel('square', 5);
-%     image_dilate{no_phase}=imerode(image_dilate{no_phase}, se_erode);
-    
-    % convert image to bw by tresholding everything above 2*mean value of
-    % background noise
-    bw_image_dilate{no_phase}=image_dilate{no_phase}>2*mean2(average_background_noise);
-    
-    % detect blobs/regions algorithm
-    blobDetectorStruct = regionprops(bw_image_dilate{no_phase}, 'BoundingBox', 'Extrema', 'Centroid', 'Area', 'Orientation');
-    
-    % this part of code does logical sorting of blocks detected by blob
-    % detection algorithm
-    extrema = cat(1, blobDetectorStruct.Extrema);
-
-    left_most_bottom = extrema(7:8:end, :);
-    left = left_most_bottom(:, 1);
-    bottom = left_most_bottom(:, 2);
-    % quantize the bottom coordinate
-    bottom = 3 * round(bottom / 3);
-    
-    [sorted, sort_order] = sortrows([bottom left]);
-    
-    sorted_region_props = blobDetectorStruct(sort_order);
-    
-    bounding_box=cat(1, sorted_region_props.BoundingBox);
-    area=cat(1, sorted_region_props.Area);
-    centroid=cat(1, sorted_region_props.Centroid);
-    
-    % filter detected blobs by minimum area treshold
-    average_area=mean(area);
-    sorted_region_props_filtered=[bounding_box, area, centroid];
-    
-    % ignore non-significant variations in detected parameters
-    sorted_region_props_filtered=round(sorted_region_props_filtered, 3, 'significant');
-    
-    indices = find(area<average_area);
-    sorted_region_props_filtered(indices,:) = [];
-    centroid(indices,:)=[];
-    
-    % sort region props by centroid values
-    [sorted, sort_order] = sortrows([centroid]);
-    sorted_region_props_filtered = sortrows(sorted_region_props_filtered,[6,-7, 2]);
-    
-    figure
-    I = im2uint8(bw_image_dilate{no_phase});
-    imshow(I, 'InitialMag', 'fit')
-    hold on
-    
-    % put bounding rectangles aroun ROIs and put numeric label on each
-    % block in centroid location
-    for k = 1:size(sorted_region_props_filtered,1)
-        bbox{no_phase}(k,:)=[sorted_region_props_filtered(k,1), sorted_region_props_filtered(k,2),sorted_region_props_filtered(k,3),sorted_region_props_filtered(k,4)];
-        
-        text(sorted_region_props_filtered(k,6), sorted_region_props_filtered(k,7), sprintf('%d', k), 'Color', 'b');
-        rectangle('Position', [sorted_region_props_filtered(k,1), sorted_region_props_filtered(k,2),sorted_region_props_filtered(k,3),sorted_region_props_filtered(k,4)],'EdgeColor', 'r', 'LineWidth', 3);   
-    end
-    
-    hold off
-    
+    bbox{phase_no}=detectMasksBoundingRectangles(image{phase_no}, average_background_noise);
 end
-
-%% DRAW ALL 64 MEASUREMENTS FOR EACH PHASE IN ONE FIGURE
-
-% for p=1:64
-%     figure(200)
-%     subplot(221), imagesc(measurements{1}{p}), colormap gray, title(['Phase 1 ', num2str(p)])
-%     subplot(222), imagesc(measurements{2}{p}), colormap gray, title(['Phase 2 ', num2str(p)])
-%     subplot(223), imagesc(measurements{3}{p}), colormap gray, title(['Phase 3 ', num2str(p)])
-%     subplot(224), imagesc(measurements{4}{p}), colormap gray, title(['Phase 4 ', num2str(p)])
-%     drawnow,
-%     %     waitforbuttonpress
-% end
 
 %% LOAD SYNTHETIC MASKS - REAL MEASUREMENTS MASKS AND CALIBRATION MASKS
 % crop to only one synthetic mask - loaded images contain multiple masks
@@ -205,74 +128,75 @@ crop_masks.block_size=8;
 
 
 %% CROP REAL IMAGES BY PHASE ROI
-
-for no_phase=1:no_of_phases
-    for bbox_no=1:size(bbox{no_phase},1)
+% variable that holds sum of all 4 phases in our ROI - image reconstruction
+image_whole=0;
+for phase_no=1:no_of_phases
+    for bbox_no=1:size(bbox{phase_no},1)
         % define active block for processing - using ROIs detected by blob
         % detection algorithm - crop real measurements
-        crop{no_phase}.roi_x_start=bbox{no_phase}(bbox_no,1);
-        crop{no_phase}.roi_y_start=bbox{no_phase}(bbox_no,2);
-        crop{no_phase}.block_size_x=bbox{no_phase}(bbox_no,3);
-        crop{no_phase}.block_size_y=bbox{no_phase}(bbox_no,4);
+        crop{phase_no}.roi_x_start=bbox{phase_no}(bbox_no,1);
+        crop{phase_no}.roi_y_start=bbox{phase_no}(bbox_no,2);
+        crop{phase_no}.block_size_x=bbox{phase_no}(bbox_no,3);
+        crop{phase_no}.block_size_y=bbox{phase_no}(bbox_no,4);
                 
         for p=1:64
-            measurements_crop{no_phase}{p}=imcrop(measurements{no_phase}{p}, [crop{no_phase}.roi_x_start crop{no_phase}.roi_y_start crop{no_phase}.block_size_x crop{no_phase}.block_size_y]);
+            measurements_crop{phase_no}{p}=imcrop(measurements{phase_no}{p}, [crop{phase_no}.roi_x_start crop{phase_no}.roi_y_start crop{phase_no}.block_size_x crop{phase_no}.block_size_y]);
             
             % estimate treshold_value for leftover noise after background
             % subtraction using wavelet transformation
-            [a,d,v,h]=dwt2(measurements_crop{no_phase}{p}, 'haar');
+            [a,d,v,h]=dwt2(measurements_crop{phase_no}{p}, 'haar');
             treshold_value=median(abs(d(:)))/0.6745;
             
-            measurements_crop{no_phase}{p}=wthresh(measurements_crop{no_phase}{p}, 'h', 4*treshold_value);
+            measurements_crop{phase_no}{p}=wthresh(measurements_crop{phase_no}{p}, 'h', 4*treshold_value);
             
         end
         
         %% MEASUREMENT SUM CALCULATION - CALCULATING INPUT VALUES FOR CS RECONSTRUCTION
         
-        measurements_sum_image{no_phase}=0;
-        measurements_sum_image_crop{no_phase}=0;
+        measurements_sum_image{phase_no}=0;
+        measurements_sum_image_crop{phase_no}=0;
         
         for mask_number=1:64
-            measurements_sum{no_phase}(mask_number)=0;
-            measurements_sum{no_phase}(mask_number)=sum(measurements_crop{no_phase}{mask_number}(:));
+            measurements_sum{phase_no}(mask_number)=0;
+            measurements_sum{phase_no}(mask_number)=sum(measurements_crop{phase_no}{mask_number}(:));
             
-            measurements_sum_image{no_phase}=measurements_sum_image{no_phase}+measurements{no_phase}{mask_number};
-            measurements_sum_image_crop{no_phase}=measurements_sum_image_crop{no_phase}+measurements_crop{no_phase}{mask_number};
+            measurements_sum_image{phase_no}=measurements_sum_image{phase_no}+measurements{phase_no}{mask_number};
+            measurements_sum_image_crop{phase_no}=measurements_sum_image_crop{phase_no}+measurements_crop{phase_no}{mask_number};
         end
         
         % plot current block being processed
         figure(207)
-        imagesc(measurements_sum_image{no_phase}), colormap gray, title(['Measurement Images Sum ', num2str(no_phase)])
+        imagesc(measurements_sum_image{phase_no}), colormap gray, title(['Measurement Images Sum ', num2str(phase_no)])
         hold on
-        rectangle('Position', [crop{no_phase}.roi_x_start, crop{no_phase}.roi_y_start, crop{no_phase}.block_size_x, crop{no_phase}.block_size_y],'EdgeColor', 'b', 'LineWidth', 3);
+        rectangle('Position', [crop{phase_no}.roi_x_start, crop{phase_no}.roi_y_start, crop{phase_no}.block_size_x, crop{phase_no}.block_size_y],'EdgeColor', 'b', 'LineWidth', 3);
         drawnow
         
         % image_whole is full scene reconstruction by summing all four phases
-        image_whole=image_whole+measurements_sum_image{no_phase};
+        image_whole=image_whole+measurements_sum_image{phase_no};
                
 
         %% CROP CALIBRATION MEASUREMENTS AND CALCULATE CALIBRATION MEASUREMENTS SUM
         
-        calib_measurement_avg{no_phase}=0;
+        calib_measurement_avg{phase_no}=0;
         % for each measurement and for 1-64 ones in a calib mask
         for no_measurements=1:no_of_calib_measurements
             for p=1:64
-                calib_measurement_sum_by_percentage{no_phase}{no_measurements}(p)=0;
+                calib_measurement_sum_by_percentage{phase_no}{no_measurements}(p)=0;
 
-                calib_measurements_crop{no_phase}{no_measurements}{p}=imcrop(calib_measurements{no_phase}{no_measurements}{p}, [crop{no_phase}.roi_x_start crop{no_phase}.roi_y_start crop{no_phase}.block_size_x crop{no_phase}.block_size_y]);
+                calib_measurements_crop{phase_no}{no_measurements}{p}=imcrop(calib_measurements{phase_no}{no_measurements}{p}, [crop{phase_no}.roi_x_start crop{phase_no}.roi_y_start crop{phase_no}.block_size_x crop{phase_no}.block_size_y]);
                 
                 % leftover noise tresholding
-                [a,d,v,h]=dwt2(calib_measurements_crop{no_phase}{no_measurements}{p}, 'haar');
+                [a,d,v,h]=dwt2(calib_measurements_crop{phase_no}{no_measurements}{p}, 'haar');
                 treshold_value=median(abs(d(:)))/0.6745;
                 
-                calib_measurements_crop{no_phase}{no_measurements}{p}=wthresh(calib_measurements_crop{no_phase}{no_measurements}{p}, 'h', 4*treshold_value);
+                calib_measurements_crop{phase_no}{no_measurements}{p}=wthresh(calib_measurements_crop{phase_no}{no_measurements}{p}, 'h', 4*treshold_value);
                 
-                calib_measurement_sum_by_percentage{no_phase}{no_measurements}(p)=sum(calib_measurements_crop{no_phase}{no_measurements}{p}(:));
+                calib_measurement_sum_by_percentage{phase_no}{no_measurements}(p)=sum(calib_measurements_crop{phase_no}{no_measurements}{p}(:));
                 
             end
             % calculate average of all 4 measurements for single calib mask
             % with certain percentage of ones
-            calib_measurement_avg{no_phase}=calib_measurement_avg{no_phase}+calib_measurement_sum_by_percentage{no_phase}{no_measurements}/4;
+            calib_measurement_avg{phase_no}=calib_measurement_avg{phase_no}+calib_measurement_sum_by_percentage{phase_no}{no_measurements}/4;
             
         end
         
@@ -285,12 +209,12 @@ for no_phase=1:no_of_phases
         % measurements used in regresion
         downsample_factor=1;
         
-        gamma_function{no_phase}=polyfit(log(synth_calib_mask_number_of_ones(1:downsample_factor:end)),log(calib_measurement_avg{1}(1:downsample_factor:end)), 1);
+        gamma_function{phase_no}=polyfit(log(synth_calib_mask_number_of_ones(1:downsample_factor:end)),log(calib_measurement_avg{1}(1:downsample_factor:end)), 1);
         
-        gamma{no_phase}=gamma_function{no_phase}(1);
-        A{no_phase}=exp(gamma_function{no_phase}(2));
+        gamma{phase_no}=gamma_function{phase_no}(1);
+        A{phase_no}=exp(gamma_function{phase_no}(2));
         
-        calib_measurements_sum_averaged_regresion{no_phase}=A{no_phase}.*(synth_calib_mask_number_of_ones.^gamma{no_phase});
+        calib_measurements_sum_averaged_regresion{phase_no}=A{phase_no}.*(synth_calib_mask_number_of_ones.^gamma{phase_no});
         
         %         figure
         %         plot(synth_calib_mask_number_of_ones(1:downsample_factor:end)', [calib_measurement_avg{no_phase}(1:downsample_factor:end)' calib_measurements_sum_averaged_regresion{no_phase}(1:downsample_factor:end)'])
@@ -299,12 +223,12 @@ for no_phase=1:no_of_phases
         %         xlabel('Number of Ones In A Mask')
         %         ylabel('Intensity Sum')
         
-        inv_gamma_function{no_phase}=polyfit(log(calib_measurement_avg{no_phase}(1:downsample_factor:end)),log(synth_calib_mask_number_of_ones(1:downsample_factor:end)), 1);
+        inv_gamma_function{phase_no}=polyfit(log(calib_measurement_avg{phase_no}(1:downsample_factor:end)),log(synth_calib_mask_number_of_ones(1:downsample_factor:end)), 1);
         
-        lambda{no_phase}=inv_gamma_function{no_phase}(1);
-        B{no_phase}=exp(inv_gamma_function{no_phase}(2));
+        lambda{phase_no}=inv_gamma_function{phase_no}(1);
+        B{phase_no}=exp(inv_gamma_function{phase_no}(2));
         
-        synth_calib_mask_number_of_ones_inv{no_phase}=B{no_phase}*(calib_measurement_avg{no_phase}.^lambda{no_phase});
+        synth_calib_mask_number_of_ones_inv{phase_no}=B{phase_no}*(calib_measurement_avg{phase_no}.^lambda{phase_no});
         
         %         figure
         %
@@ -315,7 +239,7 @@ for no_phase=1:no_of_phases
         %         ylabel('Number of Ones In A Mask')
         
         % degamma measurement
-        y{no_phase}=B{no_phase}*(measurements_sum{no_phase}.^lambda{no_phase});
+        y{phase_no}=B{phase_no}*(measurements_sum{phase_no}.^lambda{phase_no});
         
         
         %% TRANSFORMATION MATRICES PSI GENERATION
@@ -494,15 +418,15 @@ for no_phase=1:no_of_phases
         variable s_est(64, 1);
         minimize(norm(s_est, 1));
         subject to
-        theta * s_est == y{no_phase}(1:no_of_measurements_for_reconstruction)';
+        theta * s_est == y{phase_no}(1:no_of_measurements_for_reconstruction)';
         
         cvx_end
         
         image_est = (psi_inv * s_est).';
         %     image_est = idct2(s_est);
         
-        im_gray_est{no_phase}{bbox_no} = (reshape(image_est, 8, 8));
-        im_gray_est_vector{no_phase}{bbox_no} = image_est;
+        im_gray_est{phase_no}{bbox_no} = (reshape(image_est, 8, 8));
+        im_gray_est_vector{phase_no}{bbox_no} = image_est;
         %         figure(101), imagesc(im_gray_est{no_phase}{bbox_no}), colormap gray
  
         %         image_gray{no_phase}=[im_gray_est{no_phase}{1}, im_gray_est{}]
