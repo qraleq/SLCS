@@ -66,7 +66,7 @@ average_background_noise = estimateAverageBackgroundNoise(backgrounds, plot_imag
 %     [calib_measurements{no_phase}{no_measurement}, meta_info_calib_measurements{no_phase}{no_measurement}]=imreadraw_from_directory(['D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\',num2str(no_measurement),'. Different Percentage Mask\',num2str(no_phase),'\'],'.dng', crop_roi, bayer_color, plot_images.bool);
 %
 %     % removes background noise from calibration measurements
-%     calib_measurements{no_phase}{no_measurement}=remove_background_noise(calib_measurements{no_phase}{no_measurement}, backgrounds_avg);
+%     calib_measurements{no_phase}{no_measurement}=removeBackgroundNoise(calib_measurements{no_phase}{no_measurement}, backgrounds_avg);
 %
 %     % writes current progress into console - loading images may take some
 %     % time to process
@@ -90,7 +90,7 @@ load calib_measurements
 
 % for no_phase=1:4
 %     [measurements{no_phase}, meta_info_measurements{no_phase}]=imreadraw_from_directory(['D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\Measurements\',num2str(no_phase),'\'],'.dng', crop_roi, bayer_color, plot_images.bool);
-%     measurements{no_phase}=remove_background_noise(measurements{no_phase}, backgrounds_avg);
+%     measurements{no_phase}=removeBackgroundNoise(measurements{no_phase}, backgrounds_avg);
 % end
 %
 % save measurements variable because its loading time is too long
@@ -111,7 +111,7 @@ for phase_no=1:no_of_phases
 end
 
 %% LOAD SYNTHETIC MASKS - REAL MEASUREMENTS MASKS AND CALIBRATION MASKS
-% crop to only one synthetic mask - loaded images contain multiple masks
+% crop to only one synthetic submask - loaded images contain multiple masks
 crop_masks.bool=1;
 crop_masks.roi_x_start=0;
 crop_masks.roi_y_start=0;
@@ -120,11 +120,10 @@ crop_masks.block_size=8;
 % load synth measurement masks and produce measurement matrix phi and
 % calculate number of ones(sum of ones in each mask should be 32)
 
-[synth_masks, synth_mask_number_of_ones, phi]=load_synthetic_masks('D:\Diplomski rad\1280x800 Patterns\Measurement Masks\1\','.png', crop_masks, 0);
+[synth_masks, synth_mask_number_of_ones, phi]=loadSyntheticMasks('D:\Diplomski rad\1280x800 Patterns\Measurement Masks\1\','.png', crop_masks, 1);
 
 % load calib masks and calculate number of ones in each mask
-% (that is only used to check if everything is ok)
-[synth_calib_masks, synth_calib_mask_number_of_ones]=load_synthetic_masks('D:\Diplomski rad\1280x800 Patterns\Different Percentage Masks\1. Random Pattern\1\','.png', crop_masks, 0);
+[synth_calib_masks, synth_calib_mask_number_of_ones]=loadSyntheticMasks('D:\Diplomski rad\1280x800 Patterns\Different Percentage Masks\1. Random Pattern\1\','.png', crop_masks, 0);
 
 
 %% CROP REAL IMAGES BY PHASE ROI

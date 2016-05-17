@@ -1,4 +1,8 @@
-function [synth_mask, synth_mask_number_of_ones, phi]=load_synthetic_masks(directory, extension, crop_mask, plot)
+function [synth_mask, synth_mask_number_of_ones, phi]=loadSyntheticMasks(directory, extension, crop_mask, plot)
+% function loads synthetic masks from input directory, crops whole mask to
+% only one submask and plots the loaded masks;
+% it outputs submasks and number of ones in each of them, optionally it
+% outputs matrix phi if measurement masks are being loaded
 
 D=dir([directory,'*',extension]);
 directory_scene=directory;
@@ -30,10 +34,12 @@ for i=1:length(synth_mask)
         figure(100), imagesc(reshape(measurement_matrix(:,i),[8 8])), colormap gray, title('Measurement mask'), drawnow
     end
 end
-%     measurement_matrix=measurement_matrix';
+
+measurement_matrix=measurement_matrix';
+
 if(plot)
-    % plot measurement matrix
-    figure, imagesc(measurement_matrix), colormap gray, title('Measurement matrix - columwise')
+    % plot measurement matrix phi
+    figure, imagesc(measurement_matrix), colormap gray, title('Measurement matrix - phi')
 end
 
-phi=measurement_matrix';
+phi=measurement_matrix;
