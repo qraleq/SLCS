@@ -19,56 +19,46 @@ no_of_phases=4;
 no_of_calib_measurements=4;
 
 % global variable used to determine which of 4 Bayer CFA color is being
-% used in further processing
-bayer_color='g';
+% used in further processing - you can choose between:
+% R - only red channel
+% G - both green channels from Bayer CFA
+% G1 or G2 - one of green channels in Bayer CFA
+% B - only blue channel
+bayer_cfa_color='g';
 
-% if plot_images is true, loaded images are being ploted
+% if plot_images is true, images loaded by bulk load functions are being ploted
 plot_images.bool=0;
 
-%% SET CROP ROI ON IMAGE AND TEST IT BY PLOTTING
-% this is used to determine region of interest(roi) on original image
-% after
-crop_dummy.bool=0;
+%% SET CROP ROI ON IMAGE
+% determine region of interest(roi) on scene image and plot it
 
 % loading whole(non-cropped) real measurement image to decide what is our ROI
-measurement_image_whole=imreadraw('D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\Measurements\1\mask_064.dng', crop_dummy, bayer_color);
+crop_dummy.bool=0;
+measurement_image_whole=imreadraw('D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\Measurements\1\mask_064.dng', crop_dummy, 'all');
 
 % plot whole real measurement image
-figure, imagesc(measurement_image_whole), colormap gray, title('Whole Measurement Image')
+figure, imagesc(measurement_image_whole), colormap gray, title('Whole Measurement Image'), axis image
+hold on
 
-% defining crop_roi struct containing details about crop
-crop_roi.bool=1;
+% defining crop_roi struct containing details about crop roi
 crop_roi.roi_x_start=1960;
 crop_roi.roi_y_start=1045;
 crop_roi.block_size=399;
 
-measurement_image_crop=imreadraw('D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\Measurements\1\mask_064.dng', crop_roi, bayer_color);
-
-% plot cropped roi
-figure, imagesc(measurement_image_crop), colormap gray, title('Cropped Measurement Image')
+% draw rectangle on desired image roi
+rectangle('Position', [crop_roi.roi_x_start, crop_roi.roi_y_start, crop_roi.block_size, crop_roi.block_size],'EdgeColor', 'r', 'LineWidth', 2);
 
 %% LOAD BACKGROUND IMAGES
-[backgrounds, meta_info_backgrounds]=imreadraw_from_directory('D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\Backgrounds\','.dng', crop_roi, bayer_color, plot_images.bool);
 
-%% CALCULATE AVERAGE BACKGROUND VALUE IMAGE
+[backgrounds, meta_info_backgrounds] = imreadraw_from_directory('D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\Backgrounds\','.dng', crop_roi, bayer_cfa_color, plot_images.bool);
 
-% average background contains all noise that occured in measurement
-% process, and it includes different noises from camera sensor itself,
-% projector 'black' image noise and other types of noise
+%% ESTIMATE AVERAGE BACKGROUND NOISE IMAGE
 
-backgrounds_avg=zeros(size(backgrounds{1},1), size(backgrounds{1},2));
-
-% calculate backgrounds average
-for i=1:length(backgrounds)
-    backgrounds_avg=backgrounds_avg+((backgrounds{i})/length(backgrounds));
-end
-
-% plot backgrounds average
-figure, imagesc(backgrounds_avg), colormap gray, title('Backgrounds Average')
+average_background_noise = estimateAverageBackgroundNoise(backgrounds, plot_images.bool);
 
 %% LOAD CALIBRATION MEASUREMENTS
-% calibration measurements are different percentage masks images which
-% are used to estimate gamma distortion in camera-projector system
+% calibration measurements are different percentage masks images 
+% used to estimate gamma distortion in camera-projector system
 
 % for no_phase=1:no_of_phases
 %     for no_measurement=1:no_of_calib_measurements
@@ -78,11 +68,15 @@ figure, imagesc(backgrounds_avg), colormap gray, title('Backgrounds Average')
 %     % removes background noise from calibration measurements
 %     calib_measurements{no_phase}{no_measurement}=remove_background_noise(calib_measurements{no_phase}{no_measurement}, backgrounds_avg);
 %
-%     % writes current progress into console
+%     % writes current progress into console - loading images may take some
+%     % time to process
+% 
 %     no_phase, no_measurement
+% 
 %     end
 % end
 %
+% 
 % % save cablib_measurements variable because its loading time is too long
 % % save('calib_measurements','calib_measurements')
 
@@ -104,56 +98,6 @@ load calib_measurements
 
 load measurements
 
-%% BLOB DETECTION
-%
-% % initialization of BlobAnalysis function and setting maximum blob count to
-% % an expected number
-% hblob=vision.BlobAnalysis;
-% hblob.MaximumCount=10000;
-%
-% % for each phase take white calib measurement image, dilate it, convert it
-% % to bw, find all blobs, estimate their bounding box rectangle and
-% % eliminate all bounding boxes which are smaller than average so we have
-% % only full phase measurements cropped
-% for no_phase=1:no_of_phases
-%     image{no_phase}=im2double(calib_measurements{no_phase}{1}{64});
-%
-%     se_dilate=strel('disk', 6);
-%     image_dilate{no_phase}=imdilate(image{no_phase}, se_dilate);
-%
-%     bw_image_dilate{no_phase}=image_dilate{no_phase}>1100;
-%
-%     figure, imagesc(bw_image_dilate{no_phase}), colormap gray, title('White Calib Mask - dilated - bw'), axis image
-%
-%     [area{no_phase}, centroid{no_phase}, bounding_box{no_phase}] = step(hblob, bw_image_dilate{no_phase});
-%
-%     bounding_box{no_phase}=[bounding_box{no_phase}, centroid{no_phase}];
-%
-%     % calculate average bounding box size
-%     bbox_size_sum=0;
-%
-%     bbox{no_phase}=[0 0 0 0 0 0];
-%
-%     bbox_size_average=mean(area{no_phase});
-%
-%     % plot bounding rectangles on image
-%     for i=1:size(bounding_box{no_phase},1)
-%         bbox_size=bounding_box{no_phase}(i,3)*bounding_box{no_phase}(i,4);
-%
-%         if(bbox_size>bbox_size_average)
-%
-%             bbox{no_phase}=[bbox{no_phase}; bounding_box{no_phase}(i,:)];
-%             rectangle('Position', [bounding_box{no_phase}(i,1), bounding_box{no_phase}(i,2), bounding_box{no_phase}(i,3), bounding_box{no_phase}(i,4)],'EdgeColor', 'r', 'LineWidth', 3);
-%
-%         end
-%     end
-%
-%     bbox{no_phase}=bbox{no_phase}(2:end,:);
-%     %     bbox{no_phase}=sortrows(bbox{no_phase},2);
-% end
-%
-%
-
 %% BLOB DETECTION AND PROCESSING
 
 % variable that holds sum of all 4 phases in our ROI - image reconstruction
@@ -163,7 +107,7 @@ image_whole=0;
 for no_phase=1:no_of_phases
     % load calibration image with all pixels in 8x8 square switched on -
     % easier crop
-    image{no_phase}=im2double(calib_measurements{no_phase}{1}{64}-backgrounds_avg);
+    image{no_phase}=im2double(calib_measurements{no_phase}{1}{64}-average_background_noise);
     
     % use morphological operations on "white" calibration image so whole
     % ROI is covered by blob detection algorithm
@@ -175,7 +119,7 @@ for no_phase=1:no_of_phases
     
     % convert image to bw by tresholding everything above 2*mean value of
     % background noise
-    bw_image_dilate{no_phase}=image_dilate{no_phase}>2*mean2(backgrounds_avg);
+    bw_image_dilate{no_phase}=image_dilate{no_phase}>2*mean2(average_background_noise);
     
     % detect blobs/regions algorithm
     blobDetectorStruct = regionprops(bw_image_dilate{no_phase}, 'BoundingBox', 'Extrema', 'Centroid', 'Area', 'Orientation');
