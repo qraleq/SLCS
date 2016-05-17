@@ -61,18 +61,18 @@ average_background_noise = estimateAverageBackgroundNoise(backgrounds, plot_imag
 % calibration measurements are different percentage masks images 
 % used to estimate gamma distortion in camera-projector system
 
-% for no_phase=1:no_of_phases
+% for phase_no=1:no_of_phases
 %     for no_measurement=1:no_of_calib_measurements
 %
-%     [calib_measurements{no_phase}{no_measurement}, meta_info_calib_measurements{no_phase}{no_measurement}]=imreadraw_from_directory(['D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\',num2str(no_measurement),'. Different Percentage Mask\',num2str(no_phase),'\'],'.dng', crop_roi, bayer_color, plot_images.bool);
+%     [calib_measurements{phase_no}{no_measurement}, meta_info_calib_measurements{phase_no}{no_measurement}]=imreadraw_from_directory(['D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\',num2str(no_measurement),'. Different Percentage Mask\',num2str(phase_no),'\'],'.dng', crop_roi, bayer_color, plot_images.bool);
 %
 %     % removes background noise from calibration measurements
-%     calib_measurements{no_phase}{no_measurement}=removeBackgroundNoise(calib_measurements{no_phase}{no_measurement}, backgrounds_avg);
+%     calib_measurements{phase_no}{no_measurement}=removeBackgroundNoise(calib_measurements{phase_no}{no_measurement}, backgrounds_avg);
 %
 %     % writes current progress into console - loading images may take some
 %     % time to process
 % 
-%     no_phase, no_measurement
+%     phase_no, no_measurement
 % 
 %     end
 % end
@@ -89,9 +89,9 @@ load calib_measurements
 % background noise is removed from real measurements just as in case of
 % calibration measurements
 
-% for no_phase=1:4
-%     [measurements{no_phase}, meta_info_measurements{no_phase}]=imreadraw_from_directory(['D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\Measurements\',num2str(no_phase),'\'],'.dng', crop_roi, bayer_color, plot_images.bool);
-%     measurements{no_phase}=removeBackgroundNoise(measurements{no_phase}, backgrounds_avg);
+% for phase_no=1:4
+%     [measurements{phase_no}, meta_info_measurements{phase_no}]=imreadraw_from_directory(['D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\Measurements\',num2str(phase_no),'\'],'.dng', crop_roi, bayer_color, plot_images.bool);
+%     measurements{phase_no}=removeBackgroundNoise(measurements{phase_no}, backgrounds_avg);
 % end
 %
 % save measurements variable because its loading time is too long
@@ -142,14 +142,14 @@ for phase_no=1:no_of_phases
         crop{phase_no}.block_size_y=bounding_box{phase_no}(bbox_no,4);
                 
         for p=1:64
-            measurements_block{phase_no}{p}=imcrop(measurements{phase_no}{p}, [crop{phase_no}.roi_x_start crop{phase_no}.roi_y_start crop{phase_no}.block_size_x crop{phase_no}.block_size_y]);
+            measurements_block{p}=imcrop(measurements{phase_no}{p}, [crop{phase_no}.roi_x_start crop{phase_no}.roi_y_start crop{phase_no}.block_size_x crop{phase_no}.block_size_y]);
             
             % estimate treshold_value for leftover noise after background
             % subtraction using wavelet transformation
-            [a,d,v,h]=dwt2(measurements_block{phase_no}{p}, 'haar');
+            [a,d,v,h]=dwt2(measurements_block{p}, 'haar');
             treshold_value=median(abs(d(:)))/0.6745;
             
-            measurements_block{phase_no}{p}=wthresh(measurements_block{phase_no}{p}, 'h', 4*treshold_value);
+            measurements_block{p}=wthresh(measurements_block{p}, 'h', 4*treshold_value);
             
         end
         
@@ -159,9 +159,9 @@ for phase_no=1:no_of_phases
         summed_measurements_subimage{phase_no}=0;
         
         for mask_number=1:64
-            measurement_value{phase_no}(mask_number)=0;
+            measurement_value(mask_number)=0;
             
-            measurement_value{phase_no}(mask_number)=sum(measurements_block{phase_no}{mask_number}(:));
+            measurement_value(mask_number)=sum(measurements_block{mask_number}(:));
             
             summed_measurements_subimage{phase_no}=summed_measurements_subimage{phase_no}+measurements{phase_no}{mask_number};
         end
@@ -179,29 +179,29 @@ for phase_no=1:no_of_phases
 
         % calibration measurements processing for gamma distortion
         % correction
-        calib_measurement_avg_value{phase_no}=0;
+        calib_measurement_avg_value=0;
         
         % for each measurement and for 1-64 ones in a calib mask
         for no_measurements=1:no_of_calib_measurements
             for p=1:64
-                calib_measurement_sum{phase_no}{no_measurements}(p)=0;
+                calib_measurement_sum{no_measurements}(p)=0;
 
-                calib_measurements_crop{phase_no}{no_measurements}{p}=imcrop(calib_measurements{phase_no}{no_measurements}{p}, [crop{phase_no}.roi_x_start crop{phase_no}.roi_y_start crop{phase_no}.block_size_x crop{phase_no}.block_size_y]);
+                calib_measurements_crop{no_measurements}{p}=imcrop(calib_measurements{phase_no}{no_measurements}{p}, [crop{phase_no}.roi_x_start crop{phase_no}.roi_y_start crop{phase_no}.block_size_x crop{phase_no}.block_size_y]);
                 
                 % leftover noise tresholding
-                [a,d,v,h]=dwt2(calib_measurements_crop{phase_no}{no_measurements}{p}, 'haar');
+                [a,d,v,h]=dwt2(calib_measurements_crop{no_measurements}{p}, 'haar');
                 treshold_value=median(abs(d(:)))/0.6745;
                 
-                calib_measurements_crop{phase_no}{no_measurements}{p}=wthresh(calib_measurements_crop{phase_no}{no_measurements}{p}, 'h', 4*treshold_value);
+                calib_measurements_crop{no_measurements}{p}=wthresh(calib_measurements_crop{no_measurements}{p}, 'h', 4*treshold_value);
                 
-                calib_measurement_sum{phase_no}{no_measurements}(p)=sum(calib_measurements_crop{phase_no}{no_measurements}{p}(:));
+                calib_measurement_sum{no_measurements}(p)=sum(calib_measurements_crop{no_measurements}{p}(:));
                 
             end
             
             % calculate average of all 4 measurements for single calib mask
             % with certain percentage of ones to improve gamma distortion
             % estimation
-            calib_measurement_avg_value{phase_no}=calib_measurement_avg_value{phase_no}+calib_measurement_sum{phase_no}{no_measurements}/4;            
+            calib_measurement_avg_value=calib_measurement_avg_value+calib_measurement_sum{no_measurements}/4;            
         end
         
         %% GAMMA CORRECTION
@@ -213,134 +213,135 @@ for phase_no=1:no_of_phases
         % measurements used in regresion
         downsample_factor=1;
         
-        gamma_function{phase_no}=polyfit(log(synth_calib_mask_number_of_ones(1:downsample_factor:end)),log(calib_measurement_avg_value{1}(1:downsample_factor:end)), 1);
+        gamma_function=polyfit(log(synth_calib_mask_number_of_ones(1:downsample_factor:end)),log(calib_measurement_avg_value(1:downsample_factor:end)), 1);
         
-        gamma{phase_no}=gamma_function{phase_no}(1);
-        A{phase_no}=exp(gamma_function{phase_no}(2));
+        gamma=gamma_function(1);
+        A=exp(gamma_function(2));
         
-        calib_measurements_sum_averaged_regresion{phase_no}=A{phase_no}.*(synth_calib_mask_number_of_ones.^gamma{phase_no});
+        calib_measurement_avg_value_regresion=A.*(synth_calib_mask_number_of_ones.^gamma);
         
-        %         figure
-        %         plot(synth_calib_mask_number_of_ones(1:downsample_factor:end)', [calib_measurement_avg{no_phase}(1:downsample_factor:end)' calib_measurements_sum_averaged_regresion{no_phase}(1:downsample_factor:end)'])
-        %         title('Gamma Correction Function - model and real')
-        %
-        %         xlabel('Number of Ones In A Mask')
-        %         ylabel('Intensity Sum')
+                figure(109)
+                plot(synth_calib_mask_number_of_ones(1:downsample_factor:end)', [calib_measurement_avg_value(1:downsample_factor:end)' calib_measurement_avg_value_regresion(1:downsample_factor:end)'])
+                title('Gamma Correction Function - model and real')
         
-        inv_gamma_function{phase_no}=polyfit(log(calib_measurement_avg_value{phase_no}(1:downsample_factor:end)),log(synth_calib_mask_number_of_ones(1:downsample_factor:end)), 1);
+                xlabel('Number of Ones In A Mask')
+                ylabel('Intensity Sum')
         
-        lambda{phase_no}=inv_gamma_function{phase_no}(1);
-        B{phase_no}=exp(inv_gamma_function{phase_no}(2));
+        inv_gamma_function=polyfit(log(calib_measurement_avg_value(1:downsample_factor:end)),log(synth_calib_mask_number_of_ones(1:downsample_factor:end)), 1);
         
-        synth_calib_mask_number_of_ones_inv{phase_no}=B{phase_no}*(calib_measurement_avg_value{phase_no}.^lambda{phase_no});
+        lambda=inv_gamma_function(1);
+        B=exp(inv_gamma_function(2));
+              
         
-        %         figure
-        %
-        %         title('Inverse Gamma Correction Function - model')
-        %         plot(calib_measurement_avg{no_phase}(1:downsample_factor:end)', synth_calib_mask_number_of_ones_inv{no_phase}(1:downsample_factor:end)')
-        %
-        %         xlabel('Intensity Sum')
-        %         ylabel('Number of Ones In A Mask')
+
+        synth_calib_mask_number_of_ones_inv=B*(calib_measurement_avg_value.^lambda);
+                figure(110)
+        
+                title('Inverse Gamma Correction Function - model')
+                plot(calib_measurement_avg_value(1:downsample_factor:end)', synth_calib_mask_number_of_ones_inv(1:downsample_factor:end)')
+        
+                xlabel('Intensity Sum')
+                ylabel('Number of Ones In A Mask')
         
         % degamma measurement
-        y{phase_no}=B{phase_no}*(measurement_value{phase_no}.^lambda{phase_no});
+        y=B*(measurement_value.^lambda);
         
         
-        %% TRANSFORMATION MATRICES PSI GENERATION
-        % in the CS problem, linear bases are usually defined by matrices Phi and Psi
-        % Producing corresponding matrices of 2D linear transforms, typically given by MATLAB functions
-        
-        wavelet = 'haar'; % 'haar', 'db2', 'db4', 'sym4', 'sym8', ...
-        
-        im=zeros(8,8);
-        
-        [rows, cols] = size(im);
-        % n = ceil(log2(min(rows,cols))); % maximum number of wavelet decomposition levels
-        n = wmaxlev(size(im), wavelet); % maximum number of wavelet decomposition levels
-        [C,S] = wavedec2(im, n, wavelet); % conversion to 2D, wavelet decomposition
-        
-        % DWT 2D matrix Psi
-        % The matrix columns are unit impulse responses for each pixel
-        i = 1;
-        delta = zeros(rows*cols,1); % Store to 1D vector for simplicity
-        delta(i) = 1; % Unit impulse at the first pixel position
-        C = wavedec2(reshape(delta,[rows,cols]), n, wavelet); % conversion to 2D, wavelet decomposition
-        DWTm = sparse(length(C), rows*cols); % space alocation for the result (sparse matrix)
-        DWTm(:,i) = C.'; % first image column
-        
-        for i=2:rows*cols,
-            delta(i-1)=0;
-            delta(i) = 1; % Unit impulse at each pixel position
-            C = wavedec2(reshape(delta,[rows,cols]), n, wavelet); % conversion to 2D, wavelet decomposition
-            DWTm(:,i) = C.'; % all image columns
-        end
-        
-        % Check the matrix construction
-        % Y = (DWT * reshape(im, rows*cols,1)).'; % Aplication on an image: conversion to 1D, matrix multiplication
-        % C = wavedec2(im, n, wavelet); % Direct implementation using MATLAB function
-        % max(abs(Y-C))  % must be zero
-        
-        
-        % IDWT 2D matrix (Psi^(-1))
-        % The matrix columns are unit impulse responses for each spectrum coefficient
-        i=1;
-        clen = size(DWTm,1);
-        delta = zeros(clen,1);
-        delta(i) = 1; % Unit impulse at the first wavelet spectrum coefficient position
-        xr = waverec2(delta, S, wavelet); % wavelet reconstruction (inverse transform)
-        IDWTm = sparse(rows*cols, clen); % space alocation for the result (sparse matrix)
-        IDWTm(:,i) = reshape(xr, rows*cols, 1).'; % conversion to 1D
-        
-        for i=2:clen,
-            delta(i-1)=0;
-            delta(i) = 1; % Unit impulse at each wavelet spectrum coefficient position
-            xr = waverec2(delta, S, wavelet); % wavelet reconstruction (inverse transform)
-            IDWTm(:,i) = reshape(xr, rows*cols, 1).'; % conversion to 1D
-        end
-        
-        % Check the perfect reconstruction
-        % full(max(max(abs(IDWT * DWT - speye(rows*cols)))))  % must be zero
-        
-        %% DCT MATRIX GENERATION
-        % The matrix columns are unit impulse responses for each pixel
-        
-        i = 1;
-        delta = zeros(rows*cols,1); % Store to 1D vector for simplicity
-        delta(i) = 1; % Unit impulse at the first pixel position
-        C = dct2(reshape(delta,[rows, cols])); % conversion to 2D, DCT
-        DCTm = sparse(rows*cols, rows*cols); % space alocation for the result (sparse matrix)
-        DCTm(:,i) = C(:); % first image column
-        
-        for i=2:rows*cols
-            delta(i-1)=0;
-            delta(i) = 1; % Unit impulse at each pixel position
-            C = dct2(reshape(delta,[rows, cols])); % conversion to 2D, DCT
-            DCTm(:,i) = C(:); % all image columns
-        end
-        
-        % Check the matrix construction
-        % x = randn(8,8);
-        % Y = (DCT * reshape(x, 8*8,1)).'; % Aplication on an image: conversion to 1D, matrix multiplication
-        % C = dct2(x); % Direct implementation using MATLAB function
-        % max(abs(Y-C(:).'))  % must be zero
-        
-        %% IDCT 2D matrix 8 x 8
-        % The matrix columns are unit impulse responses for each spectrum coefficient
-        
-        i=1;
-        clen = size(DCTm,1);
-        delta = zeros(clen,1);
-        delta(i) = 1; % Unit impulse at the first wavelet spectrum coefficient position
-        xr = idct2(reshape(delta,[rows,cols])); % idct (inverse transform)
-        IDCTm = sparse(rows*cols, clen); % space alocation for the result (sparse matrix)
-        IDCTm(:,i) = reshape(xr, rows*cols, 1).'; % conversion to 1D
-        
-        for i=2:clen,
-            delta(i-1)=0;
-            delta(i) = 1; % Unit impulse at each DCT spectrum coefficient position
-            xr = idct2(reshape(delta,[rows,cols])); % reconstruction (inverse transform)
-            IDCTm(:,i) = reshape(xr, rows*cols, 1).'; % conversion to 1D
-        end
+%         %% TRANSFORMATION MATRICES PSI GENERATION
+%         % in the CS problem, linear bases are usually defined by matrices Phi and Psi
+%         % Producing corresponding matrices of 2D linear transforms, typically given by MATLAB functions
+%         
+%         wavelet = 'haar'; % 'haar', 'db2', 'db4', 'sym4', 'sym8', ...
+%         
+%         im=zeros(8,8);
+%         
+%         [rows, cols] = size(im);
+%         % n = ceil(log2(min(rows,cols))); % maximum number of wavelet decomposition levels
+%         n = wmaxlev(size(im), wavelet); % maximum number of wavelet decomposition levels
+%         [C,S] = wavedec2(im, n, wavelet); % conversion to 2D, wavelet decomposition
+%         
+%         % DWT 2D matrix Psi
+%         % The matrix columns are unit impulse responses for each pixel
+%         i = 1;
+%         delta = zeros(rows*cols,1); % Store to 1D vector for simplicity
+%         delta(i) = 1; % Unit impulse at the first pixel position
+%         C = wavedec2(reshape(delta,[rows,cols]), n, wavelet); % conversion to 2D, wavelet decomposition
+%         DWTm = sparse(length(C), rows*cols); % space alocation for the result (sparse matrix)
+%         DWTm(:,i) = C.'; % first image column
+%         
+%         for i=2:rows*cols,
+%             delta(i-1)=0;
+%             delta(i) = 1; % Unit impulse at each pixel position
+%             C = wavedec2(reshape(delta,[rows,cols]), n, wavelet); % conversion to 2D, wavelet decomposition
+%             DWTm(:,i) = C.'; % all image columns
+%         end
+%         
+%         % Check the matrix construction
+%         % Y = (DWT * reshape(im, rows*cols,1)).'; % Aplication on an image: conversion to 1D, matrix multiplication
+%         % C = wavedec2(im, n, wavelet); % Direct implementation using MATLAB function
+%         % max(abs(Y-C))  % must be zero
+%         
+%         
+%         % IDWT 2D matrix (Psi^(-1))
+%         % The matrix columns are unit impulse responses for each spectrum coefficient
+%         i=1;
+%         clen = size(DWTm,1);
+%         delta = zeros(clen,1);
+%         delta(i) = 1; % Unit impulse at the first wavelet spectrum coefficient position
+%         xr = waverec2(delta, S, wavelet); % wavelet reconstruction (inverse transform)
+%         IDWTm = sparse(rows*cols, clen); % space alocation for the result (sparse matrix)
+%         IDWTm(:,i) = reshape(xr, rows*cols, 1).'; % conversion to 1D
+%         
+%         for i=2:clen,
+%             delta(i-1)=0;
+%             delta(i) = 1; % Unit impulse at each wavelet spectrum coefficient position
+%             xr = waverec2(delta, S, wavelet); % wavelet reconstruction (inverse transform)
+%             IDWTm(:,i) = reshape(xr, rows*cols, 1).'; % conversion to 1D
+%         end
+%         
+%         % Check the perfect reconstruction
+%         % full(max(max(abs(IDWT * DWT - speye(rows*cols)))))  % must be zero
+%         
+%         %% DCT MATRIX GENERATION
+%         % The matrix columns are unit impulse responses for each pixel
+%         
+%         i = 1;
+%         delta = zeros(rows*cols,1); % Store to 1D vector for simplicity
+%         delta(i) = 1; % Unit impulse at the first pixel position
+%         C = dct2(reshape(delta,[rows, cols])); % conversion to 2D, DCT
+%         DCTm = sparse(rows*cols, rows*cols); % space alocation for the result (sparse matrix)
+%         DCTm(:,i) = C(:); % first image column
+%         
+%         for i=2:rows*cols
+%             delta(i-1)=0;
+%             delta(i) = 1; % Unit impulse at each pixel position
+%             C = dct2(reshape(delta,[rows, cols])); % conversion to 2D, DCT
+%             DCTm(:,i) = C(:); % all image columns
+%         end
+%         
+%         % Check the matrix construction
+%         % x = randn(8,8);
+%         % Y = (DCT * reshape(x, 8*8,1)).'; % Aplication on an image: conversion to 1D, matrix multiplication
+%         % C = dct2(x); % Direct implementation using MATLAB function
+%         % max(abs(Y-C(:).'))  % must be zero
+%         
+%         %% IDCT 2D matrix 8 x 8
+%         % The matrix columns are unit impulse responses for each spectrum coefficient
+%         
+%         i=1;
+%         clen = size(DCTm,1);
+%         delta = zeros(clen,1);
+%         delta(i) = 1; % Unit impulse at the first wavelet spectrum coefficient position
+%         xr = idct2(reshape(delta,[rows,cols])); % idct (inverse transform)
+%         IDCTm = sparse(rows*cols, clen); % space alocation for the result (sparse matrix)
+%         IDCTm(:,i) = reshape(xr, rows*cols, 1).'; % conversion to 1D
+%         
+%         for i=2:clen,
+%             delta(i-1)=0;
+%             delta(i) = 1; % Unit impulse at each DCT spectrum coefficient position
+%             xr = idct2(reshape(delta,[rows,cols])); % reconstruction (inverse transform)
+%             IDCTm(:,i) = reshape(xr, rows*cols, 1).'; % conversion to 1D
+%         end
         
         %% COMPRESSIVE SENSING
         
@@ -352,11 +353,11 @@ for phase_no=1:no_of_phases
         DCTm = dctmtx(N);
         IDCTm = dctmtx(N)';
         
-%         psi=DCTm;
-%         psi_inv=IDCTm;
+        psi=DCTm;
+        psi_inv=IDCTm;
 %         
-        psi=DWTm;
-        psi_inv=IDWTm;
+%         psi=DWTm;
+%         psi_inv=IDWTm;
 
         % number of measurements used in image reconstruction
         no_of_measurements_for_reconstruction=50;
@@ -384,11 +385,11 @@ for phase_no=1:no_of_phases
 %         
 %         % SEDUMI OPTIMIZATION
 %         
-%         for no_phase=1:no_of_phases
+%         for phase_no=1:no_of_phases
 %         
 %                 % Standard dual form: data conditioning for minimum L1
 %         
-%                 c = [ -sparse(y{no_phase}(:)); sparse(y{no_phase}(:)); spalloc(3*N,1,0) ];
+%                 c = [ -sparse(y{phase_no}(:)); sparse(y{phase_no}(:)); spalloc(3*N,1,0) ];
 %         
 %                 % Optimization
 %                 tic, [~,s]=sedumi(At, b, c); toc % SeDuMi
@@ -397,9 +398,9 @@ for phase_no=1:no_of_phases
 %                 s=s(:);
 %                 s=s(1:N);
 %         
-%                 yr{no_phase} = psi_inv * s;
+%                 yr{phase_no} = psi_inv * s;
 %         
-%                 yr{no_phase}= reshape(yr{no_phase},8,8);
+%                 yr{phase_no}= reshape(yr{phase_no},8,8);
 %         end
 %         
 %         image_reconstruction=[yr{1} yr{2}; yr{3} yr{4}];
@@ -422,7 +423,7 @@ for phase_no=1:no_of_phases
         variable s_est(64, 1);
         minimize(norm(s_est, 1));
         subject to
-        theta * s_est == y{phase_no}(1:no_of_measurements_for_reconstruction)';
+        theta * s_est == y(1:no_of_measurements_for_reconstruction)';
         
         cvx_end
         
@@ -431,9 +432,9 @@ for phase_no=1:no_of_phases
         
         im_gray_est{phase_no}{bbox_no} = (reshape(image_est, 8, 8));
         im_gray_est_vector{phase_no}{bbox_no} = image_est;
-        %         figure(101), imagesc(im_gray_est{no_phase}{bbox_no}), colormap gray
+        %         figure(101), imagesc(im_gray_est{phase_no}{bbox_no}), colormap gray
  
-        %         image_gray{no_phase}=[im_gray_est{no_phase}{1}, im_gray_est{}]
+        %         image_gray{phase_no}=[im_gray_est{phase_no}{1}, im_gray_est{}]
 
     end
 end

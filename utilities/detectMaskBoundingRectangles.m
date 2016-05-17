@@ -26,7 +26,7 @@ sorted_region_props_filtered(indices,:) = [];
 centroid(indices,:)=[];
 
 % sort region props by centroid values
-sorted_region_props_filtered = sortrows(sorted_region_props_filtered,[6, 7, 2, 3]);
+sorted_region_props_filtered = sortrows(sorted_region_props_filtered,[6, 7, 2]);
 
 figure
 I = im2uint8(bw_image_dilate);
