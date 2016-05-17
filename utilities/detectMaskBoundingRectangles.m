@@ -25,10 +25,12 @@ indices = find(area<average_blob_size);
 sorted_region_props_filtered(indices,:) = [];
 centroid(indices,:)=[];
 
-save('centroid','centroid')
+[N1,edges1,bin1] = histcounts(centroid(:,1),9);
+[N2,edges2,bin2] = histcounts(centroid(:,2),9);
 
+sorted_region_props_filtered=[sorted_region_props_filtered bin1 bin2];
 % sort region props by centroid values
-sorted_region_props_filtered = sortrows(sorted_region_props_filtered,[6, 7, 2]);
+sorted_region_props_filtered = sortrows(sorted_region_props_filtered,[8, 9]);
 
 figure
 I = im2uint8(bw_image_dilate);

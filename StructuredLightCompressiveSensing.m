@@ -29,6 +29,11 @@ bayer_cfa_color='g';
 % if plot_images is true, images loaded by bulk load functions are being ploted
 plot_images.bool=0;
 
+% generate transformation matrix psi - choice between dct and wav
+% wavelet type - 'haar', 'db2', 'db4', 'sym4', 'sym8', ...
+
+[psi, psi_inv]=generateMatrixPsi('dct',[]);
+
 %% SET CROP ROI ON IMAGE
 % determine region of interest(roi) on scene image and plot it
 
@@ -132,7 +137,7 @@ crop_masks.block_size=8;
 % variable that holds sum of all 4 phases in our ROI - image reconstruction
 summed_measurements_image=0;
 
-for phase_no=1:no_of_phases
+parfor phase_no=1:no_of_phases
     for bbox_no=1:size(bounding_box{phase_no},1)
         % define active block for processing using ROIs detected by blob
         % detection algorithm - crop real measurements
@@ -184,6 +189,7 @@ for phase_no=1:no_of_phases
         % for each measurement and for 1-64 ones in a calib mask
         for no_measurements=1:no_of_calib_measurements
             for p=1:64
+                
                 calib_measurement_sum{no_measurements}(p)=0;
 
                 calib_measurements_crop{no_measurements}{p}=imcrop(calib_measurements{phase_no}{no_measurements}{p}, [crop{phase_no}.roi_x_start crop{phase_no}.roi_y_start crop{phase_no}.block_size_x crop{phase_no}.block_size_y]);
@@ -220,12 +226,13 @@ for phase_no=1:no_of_phases
         
         calib_measurement_avg_value_regresion=A.*(synth_calib_mask_number_of_ones.^gamma);
         
-                figure(109)
-                plot(synth_calib_mask_number_of_ones(1:downsample_factor:end)', [calib_measurement_avg_value(1:downsample_factor:end)' calib_measurement_avg_value_regresion(1:downsample_factor:end)'])
-                title('Gamma Correction Function - model and real')
+        % plot gamma correction function
+        figure(109)
+        plot(synth_calib_mask_number_of_ones(1:downsample_factor:end)', [calib_measurement_avg_value(1:downsample_factor:end)' calib_measurement_avg_value_regresion(1:downsample_factor:end)'])
+        title('Gamma Correction Function - model and real')
         
-                xlabel('Number of Ones In A Mask')
-                ylabel('Intensity Sum')
+        xlabel('Number of Ones In A Mask')
+        ylabel('Intensity Sum')
         
         inv_gamma_function=polyfit(log(calib_measurement_avg_value(1:downsample_factor:end)),log(synth_calib_mask_number_of_ones(1:downsample_factor:end)), 1);
         
@@ -235,132 +242,35 @@ for phase_no=1:no_of_phases
         
 
         synth_calib_mask_number_of_ones_inv=B*(calib_measurement_avg_value.^lambda);
-                figure(110)
         
-                title('Inverse Gamma Correction Function - model')
-                plot(calib_measurement_avg_value(1:downsample_factor:end)', synth_calib_mask_number_of_ones_inv(1:downsample_factor:end)')
+        % plot inverse gamma correction funcrion
+        figure(110)
         
-                xlabel('Intensity Sum')
-                ylabel('Number of Ones In A Mask')
+        title('Inverse Gamma Correction Function - model')
+        plot(calib_measurement_avg_value(1:downsample_factor:end)', synth_calib_mask_number_of_ones_inv(1:downsample_factor:end)')
+        
+        xlabel('Intensity Sum')
+        ylabel('Number of Ones In A Mask')
         
         % degamma measurement
         y=B*(measurement_value.^lambda);
-        
-        
-%         %% TRANSFORMATION MATRICES PSI GENERATION
-%         % in the CS problem, linear bases are usually defined by matrices Phi and Psi
-%         % Producing corresponding matrices of 2D linear transforms, typically given by MATLAB functions
-%         
-%         wavelet = 'haar'; % 'haar', 'db2', 'db4', 'sym4', 'sym8', ...
-%         
-%         im=zeros(8,8);
-%         
-%         [rows, cols] = size(im);
-%         % n = ceil(log2(min(rows,cols))); % maximum number of wavelet decomposition levels
-%         n = wmaxlev(size(im), wavelet); % maximum number of wavelet decomposition levels
-%         [C,S] = wavedec2(im, n, wavelet); % conversion to 2D, wavelet decomposition
-%         
-%         % DWT 2D matrix Psi
-%         % The matrix columns are unit impulse responses for each pixel
-%         i = 1;
-%         delta = zeros(rows*cols,1); % Store to 1D vector for simplicity
-%         delta(i) = 1; % Unit impulse at the first pixel position
-%         C = wavedec2(reshape(delta,[rows,cols]), n, wavelet); % conversion to 2D, wavelet decomposition
-%         DWTm = sparse(length(C), rows*cols); % space alocation for the result (sparse matrix)
-%         DWTm(:,i) = C.'; % first image column
-%         
-%         for i=2:rows*cols,
-%             delta(i-1)=0;
-%             delta(i) = 1; % Unit impulse at each pixel position
-%             C = wavedec2(reshape(delta,[rows,cols]), n, wavelet); % conversion to 2D, wavelet decomposition
-%             DWTm(:,i) = C.'; % all image columns
-%         end
-%         
-%         % Check the matrix construction
-%         % Y = (DWT * reshape(im, rows*cols,1)).'; % Aplication on an image: conversion to 1D, matrix multiplication
-%         % C = wavedec2(im, n, wavelet); % Direct implementation using MATLAB function
-%         % max(abs(Y-C))  % must be zero
-%         
-%         
-%         % IDWT 2D matrix (Psi^(-1))
-%         % The matrix columns are unit impulse responses for each spectrum coefficient
-%         i=1;
-%         clen = size(DWTm,1);
-%         delta = zeros(clen,1);
-%         delta(i) = 1; % Unit impulse at the first wavelet spectrum coefficient position
-%         xr = waverec2(delta, S, wavelet); % wavelet reconstruction (inverse transform)
-%         IDWTm = sparse(rows*cols, clen); % space alocation for the result (sparse matrix)
-%         IDWTm(:,i) = reshape(xr, rows*cols, 1).'; % conversion to 1D
-%         
-%         for i=2:clen,
-%             delta(i-1)=0;
-%             delta(i) = 1; % Unit impulse at each wavelet spectrum coefficient position
-%             xr = waverec2(delta, S, wavelet); % wavelet reconstruction (inverse transform)
-%             IDWTm(:,i) = reshape(xr, rows*cols, 1).'; % conversion to 1D
-%         end
-%         
-%         % Check the perfect reconstruction
-%         % full(max(max(abs(IDWT * DWT - speye(rows*cols)))))  % must be zero
-%         
-%         %% DCT MATRIX GENERATION
-%         % The matrix columns are unit impulse responses for each pixel
-%         
-%         i = 1;
-%         delta = zeros(rows*cols,1); % Store to 1D vector for simplicity
-%         delta(i) = 1; % Unit impulse at the first pixel position
-%         C = dct2(reshape(delta,[rows, cols])); % conversion to 2D, DCT
-%         DCTm = sparse(rows*cols, rows*cols); % space alocation for the result (sparse matrix)
-%         DCTm(:,i) = C(:); % first image column
-%         
-%         for i=2:rows*cols
-%             delta(i-1)=0;
-%             delta(i) = 1; % Unit impulse at each pixel position
-%             C = dct2(reshape(delta,[rows, cols])); % conversion to 2D, DCT
-%             DCTm(:,i) = C(:); % all image columns
-%         end
-%         
-%         % Check the matrix construction
-%         % x = randn(8,8);
-%         % Y = (DCT * reshape(x, 8*8,1)).'; % Aplication on an image: conversion to 1D, matrix multiplication
-%         % C = dct2(x); % Direct implementation using MATLAB function
-%         % max(abs(Y-C(:).'))  % must be zero
-%         
-%         %% IDCT 2D matrix 8 x 8
-%         % The matrix columns are unit impulse responses for each spectrum coefficient
-%         
-%         i=1;
-%         clen = size(DCTm,1);
-%         delta = zeros(clen,1);
-%         delta(i) = 1; % Unit impulse at the first wavelet spectrum coefficient position
-%         xr = idct2(reshape(delta,[rows,cols])); % idct (inverse transform)
-%         IDCTm = sparse(rows*cols, clen); % space alocation for the result (sparse matrix)
-%         IDCTm(:,i) = reshape(xr, rows*cols, 1).'; % conversion to 1D
-%         
-%         for i=2:clen,
-%             delta(i-1)=0;
-%             delta(i) = 1; % Unit impulse at each DCT spectrum coefficient position
-%             xr = idct2(reshape(delta,[rows,cols])); % reconstruction (inverse transform)
-%             IDCTm(:,i) = reshape(xr, rows*cols, 1).'; % conversion to 1D
-%         end
-        
+         
         %% COMPRESSIVE SENSING
         
         % psi matrix generation - depending in which domain problem is sparse, use
         % corresponding transformation matrix
         
-        N=64;
-        
-        DCTm = dctmtx(N);
-        IDCTm = dctmtx(N)';
-        
-        psi=DCTm;
-        psi_inv=IDCTm;
+%         N=64;
 %         
-%         psi=DWTm;
-%         psi_inv=IDWTm;
+%         DCTm = dctmtx(N);
+%         IDCTm = dctmtx(N)';
+%         
+%         psi=DCTm;
+%         psi_inv=IDCTm;
+
 
         % number of measurements used in image reconstruction
-        no_of_measurements_for_reconstruction=50;
+        no_of_measurements_for_reconstruction=25;
         
         phi_r=phi(1:no_of_measurements_for_reconstruction,:);
         
@@ -410,8 +320,6 @@ for phase_no=1:no_of_phases
         
         %% CVX SOLVER - alternative to SeDuMi
         
-        clear s_est
-        clear image_est
         image_est = [];
         
         % Reconstructing initial signal
@@ -458,7 +366,7 @@ end
 
 
 phase_vector=(cell2mat(phase{1})+cell2mat(phase{2})+cell2mat(phase{3})+cell2mat(phase{4}))';
-phase_vector=flipud(phase_vector);
+phase_vector=(phase_vector);
 
 % phase_vector=phase_vector';
 
@@ -480,11 +388,11 @@ for r=1:9
 end
 
 figure
-imshow(fliplr((newMat')))
+imshow(newMat')
 
 %%
 
- bzvz=(imresize(summed_measurements_image,[144 144]));
+ bzvz=(imresize(summed_measurements_image,[400 400]));
 
 
 fun = @(block_struct) mean2(block_struct.data);
@@ -494,4 +402,3 @@ I2 = blockproc(bzvz,[8 8],fun);
 figure
 imagesc(I2)
 colormap gray
-axis image
