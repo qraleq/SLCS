@@ -1,7 +1,7 @@
-function bbox = detectMasksBoundingRectangles(image, average_background_noise)
+function bbox = detectMaskBoundingRectangles(image, average_background_noise)
 
 % use morphological operations on "white" calibration image so our roi is
-% extended and so that we crop whole measurement mask 
+% extended and so that we crop whole measurement mask
 se_dilate=strel('square', 10);
 image_dilate=imdilate(image, se_dilate);
 
@@ -12,6 +12,7 @@ bw_image_dilate=image_dilate>4*mean2(average_background_noise);
 % detect blobs/regions algorithm
 blobDetectorStruct = regionprops(bw_image_dilate, 'BoundingBox', 'Extrema', 'Centroid', 'Area', 'Orientation');
 
+% extract data from blobDetectorStruct
 bounding_box=cat(1, blobDetectorStruct.BoundingBox);
 area=cat(1, blobDetectorStruct.Area);
 centroid=cat(1, blobDetectorStruct.Centroid);
@@ -25,7 +26,7 @@ sorted_region_props_filtered(indices,:) = [];
 centroid(indices,:)=[];
 
 % sort region props by centroid values
-sorted_region_props_filtered = sortrows(sorted_region_props_filtered,[6,7, 2]);
+sorted_region_props_filtered = sortrows(sorted_region_props_filtered,[6, 7, 2, 3]);
 
 figure
 I = im2uint8(bw_image_dilate);

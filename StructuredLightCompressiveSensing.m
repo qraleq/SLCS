@@ -41,6 +41,7 @@ figure, imagesc(measurement_image_whole), colormap gray, title('Whole Measuremen
 hold on
 
 % defining crop_roi struct containing details about crop roi
+crop_roi.bool=1;
 crop_roi.roi_x_start=1960;
 crop_roi.roi_y_start=1045;
 crop_roi.block_size=399;
@@ -107,7 +108,7 @@ for phase_no=1:no_of_phases
     % easier bounding rectangle detection and easier crop
     image{phase_no}=im2double(calib_measurements{phase_no}{1}{64}-average_background_noise);
     
-    bbox{phase_no}=detectMasksBoundingRectangles(image{phase_no}, average_background_noise);
+    bounding_box{phase_no}=detectMaskBoundingRectangles(image{phase_no}, average_background_noise);
 end
 
 %% LOAD SYNTHETIC MASKS - REAL MEASUREMENTS MASKS AND CALIBRATION MASKS
@@ -127,60 +128,63 @@ crop_masks.block_size=8;
 
 
 %% CROP REAL IMAGES BY PHASE ROI
+
 % variable that holds sum of all 4 phases in our ROI - image reconstruction
-image_whole=0;
+summed_measurements_image=0;
+
 for phase_no=1:no_of_phases
-    for bbox_no=1:size(bbox{phase_no},1)
-        % define active block for processing - using ROIs detected by blob
+    for bbox_no=1:size(bounding_box{phase_no},1)
+        % define active block for processing using ROIs detected by blob
         % detection algorithm - crop real measurements
-        crop{phase_no}.roi_x_start=bbox{phase_no}(bbox_no,1);
-        crop{phase_no}.roi_y_start=bbox{phase_no}(bbox_no,2);
-        crop{phase_no}.block_size_x=bbox{phase_no}(bbox_no,3);
-        crop{phase_no}.block_size_y=bbox{phase_no}(bbox_no,4);
+        crop{phase_no}.roi_x_start=bounding_box{phase_no}(bbox_no,1);
+        crop{phase_no}.roi_y_start=bounding_box{phase_no}(bbox_no,2);
+        crop{phase_no}.block_size_x=bounding_box{phase_no}(bbox_no,3);
+        crop{phase_no}.block_size_y=bounding_box{phase_no}(bbox_no,4);
                 
         for p=1:64
-            measurements_crop{phase_no}{p}=imcrop(measurements{phase_no}{p}, [crop{phase_no}.roi_x_start crop{phase_no}.roi_y_start crop{phase_no}.block_size_x crop{phase_no}.block_size_y]);
+            measurements_block{phase_no}{p}=imcrop(measurements{phase_no}{p}, [crop{phase_no}.roi_x_start crop{phase_no}.roi_y_start crop{phase_no}.block_size_x crop{phase_no}.block_size_y]);
             
             % estimate treshold_value for leftover noise after background
             % subtraction using wavelet transformation
-            [a,d,v,h]=dwt2(measurements_crop{phase_no}{p}, 'haar');
+            [a,d,v,h]=dwt2(measurements_block{phase_no}{p}, 'haar');
             treshold_value=median(abs(d(:)))/0.6745;
             
-            measurements_crop{phase_no}{p}=wthresh(measurements_crop{phase_no}{p}, 'h', 4*treshold_value);
+            measurements_block{phase_no}{p}=wthresh(measurements_block{phase_no}{p}, 'h', 4*treshold_value);
             
         end
         
-        %% MEASUREMENT SUM CALCULATION - CALCULATING INPUT VALUES FOR CS RECONSTRUCTION
-        
-        measurements_sum_image{phase_no}=0;
-        measurements_sum_image_crop{phase_no}=0;
+        % measurement value calculation by summing measurement image pixel
+        % values; this way we get input for compressive sensing
+        % reconstruction
+        summed_measurements_subimage{phase_no}=0;
         
         for mask_number=1:64
-            measurements_sum{phase_no}(mask_number)=0;
-            measurements_sum{phase_no}(mask_number)=sum(measurements_crop{phase_no}{mask_number}(:));
+            measurement_value{phase_no}(mask_number)=0;
             
-            measurements_sum_image{phase_no}=measurements_sum_image{phase_no}+measurements{phase_no}{mask_number};
-            measurements_sum_image_crop{phase_no}=measurements_sum_image_crop{phase_no}+measurements_crop{phase_no}{mask_number};
+            measurement_value{phase_no}(mask_number)=sum(measurements_block{phase_no}{mask_number}(:));
+            
+            summed_measurements_subimage{phase_no}=summed_measurements_subimage{phase_no}+measurements{phase_no}{mask_number};
         end
         
         % plot current block being processed
         figure(207)
-        imagesc(measurements_sum_image{phase_no}), colormap gray, title(['Measurement Images Sum ', num2str(phase_no)])
+        imagesc(summed_measurements_subimage{phase_no}), colormap gray, title(['Measurement Images Sum ', num2str(phase_no)])
         hold on
         rectangle('Position', [crop{phase_no}.roi_x_start, crop{phase_no}.roi_y_start, crop{phase_no}.block_size_x, crop{phase_no}.block_size_y],'EdgeColor', 'b', 'LineWidth', 3);
         drawnow
         
         % image_whole is full scene reconstruction by summing all four phases
-        image_whole=image_whole+measurements_sum_image{phase_no};
+        summed_measurements_image=summed_measurements_image+summed_measurements_subimage{phase_no};
                
 
-        %% CROP CALIBRATION MEASUREMENTS AND CALCULATE CALIBRATION MEASUREMENTS SUM
+        % calibration measurements processing for gamma distortion
+        % correction
+        calib_measurement_avg_value{phase_no}=0;
         
-        calib_measurement_avg{phase_no}=0;
         % for each measurement and for 1-64 ones in a calib mask
         for no_measurements=1:no_of_calib_measurements
             for p=1:64
-                calib_measurement_sum_by_percentage{phase_no}{no_measurements}(p)=0;
+                calib_measurement_sum{phase_no}{no_measurements}(p)=0;
 
                 calib_measurements_crop{phase_no}{no_measurements}{p}=imcrop(calib_measurements{phase_no}{no_measurements}{p}, [crop{phase_no}.roi_x_start crop{phase_no}.roi_y_start crop{phase_no}.block_size_x crop{phase_no}.block_size_y]);
                 
@@ -190,13 +194,14 @@ for phase_no=1:no_of_phases
                 
                 calib_measurements_crop{phase_no}{no_measurements}{p}=wthresh(calib_measurements_crop{phase_no}{no_measurements}{p}, 'h', 4*treshold_value);
                 
-                calib_measurement_sum_by_percentage{phase_no}{no_measurements}(p)=sum(calib_measurements_crop{phase_no}{no_measurements}{p}(:));
+                calib_measurement_sum{phase_no}{no_measurements}(p)=sum(calib_measurements_crop{phase_no}{no_measurements}{p}(:));
                 
             end
-            % calculate average of all 4 measurements for single calib mask
-            % with certain percentage of ones
-            calib_measurement_avg{phase_no}=calib_measurement_avg{phase_no}+calib_measurement_sum_by_percentage{phase_no}{no_measurements}/4;
             
+            % calculate average of all 4 measurements for single calib mask
+            % with certain percentage of ones to improve gamma distortion
+            % estimation
+            calib_measurement_avg_value{phase_no}=calib_measurement_avg_value{phase_no}+calib_measurement_sum{phase_no}{no_measurements}/4;            
         end
         
         %% GAMMA CORRECTION
@@ -208,7 +213,7 @@ for phase_no=1:no_of_phases
         % measurements used in regresion
         downsample_factor=1;
         
-        gamma_function{phase_no}=polyfit(log(synth_calib_mask_number_of_ones(1:downsample_factor:end)),log(calib_measurement_avg{1}(1:downsample_factor:end)), 1);
+        gamma_function{phase_no}=polyfit(log(synth_calib_mask_number_of_ones(1:downsample_factor:end)),log(calib_measurement_avg_value{1}(1:downsample_factor:end)), 1);
         
         gamma{phase_no}=gamma_function{phase_no}(1);
         A{phase_no}=exp(gamma_function{phase_no}(2));
@@ -222,12 +227,12 @@ for phase_no=1:no_of_phases
         %         xlabel('Number of Ones In A Mask')
         %         ylabel('Intensity Sum')
         
-        inv_gamma_function{phase_no}=polyfit(log(calib_measurement_avg{phase_no}(1:downsample_factor:end)),log(synth_calib_mask_number_of_ones(1:downsample_factor:end)), 1);
+        inv_gamma_function{phase_no}=polyfit(log(calib_measurement_avg_value{phase_no}(1:downsample_factor:end)),log(synth_calib_mask_number_of_ones(1:downsample_factor:end)), 1);
         
         lambda{phase_no}=inv_gamma_function{phase_no}(1);
         B{phase_no}=exp(inv_gamma_function{phase_no}(2));
         
-        synth_calib_mask_number_of_ones_inv{phase_no}=B{phase_no}*(calib_measurement_avg{phase_no}.^lambda{phase_no});
+        synth_calib_mask_number_of_ones_inv{phase_no}=B{phase_no}*(calib_measurement_avg_value{phase_no}.^lambda{phase_no});
         
         %         figure
         %
@@ -238,7 +243,7 @@ for phase_no=1:no_of_phases
         %         ylabel('Number of Ones In A Mask')
         
         % degamma measurement
-        y{phase_no}=B{phase_no}*(measurements_sum{phase_no}.^lambda{phase_no});
+        y{phase_no}=B{phase_no}*(measurement_value{phase_no}.^lambda{phase_no});
         
         
         %% TRANSFORMATION MATRICES PSI GENERATION
@@ -434,7 +439,7 @@ for phase_no=1:no_of_phases
 end
 
 % plot whole scene reconstruction
-figure, imagesc(image_whole), colormap gray, title('Whole Image'), axis image
+figure, imagesc(summed_measurements_image), colormap gray, title('Whole Image'), axis image
 
 
 %%
@@ -478,7 +483,7 @@ imshow(fliplr((newMat')))
 
 %%
 
- bzvz=(imresize(image_whole,[144 144]));
+ bzvz=(imresize(summed_measurements_image,[144 144]));
 
 
 fun = @(block_struct) mean2(block_struct.data);
