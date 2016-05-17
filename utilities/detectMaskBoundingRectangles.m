@@ -25,6 +25,8 @@ indices = find(area<average_blob_size);
 sorted_region_props_filtered(indices,:) = [];
 centroid(indices,:)=[];
 
+save('centroid','centroid')
+
 % sort region props by centroid values
 sorted_region_props_filtered = sortrows(sorted_region_props_filtered,[6, 7, 2]);
 
