@@ -39,7 +39,7 @@ plot_images.bool=0;
 
 %% SET CROP ROI ON IMAGE
 % determine region of interest(roi) on scene image and plot it
-
+display('+++ Setting crop roi on image')
 % loading whole(non-cropped) real measurement image to decide what is our ROI
 crop_dummy.bool=0;
 measurement_image_whole=imreadraw('D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\Measurements\1\mask_064.dng', crop_dummy, 'all');
@@ -58,6 +58,7 @@ crop_roi.block_size=399;
 rectangle('Position', [crop_roi.roi_x_start, crop_roi.roi_y_start, crop_roi.block_size, crop_roi.block_size],'EdgeColor', 'r', 'LineWidth', 2);
 
 %% LOAD BACKGROUND IMAGES
+display('+++ Loading background images and estimating average background noise image')
 
 [backgrounds, meta_info_backgrounds] = imreadraw_from_directory('D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\Backgrounds\','.dng', crop_roi, bayer_cfa_color, plot_images.bool);
 
@@ -69,6 +70,7 @@ clear backgrounds meta_info_backgrounds
 %% LOAD CALIBRATION MEASUREMENTS
 % calibration measurements are different percentage masks images 
 % used to estimate gamma distortion in camera-projector system
+display('+++ Loading calibration measurements')
 
 % for phase_no=1:no_of_phases
 %     for no_measurement=1:no_of_calib_measurements
@@ -97,6 +99,7 @@ load calib_measurements
 % scene
 % background noise is removed from real measurements just as in case of
 % calibration measurements
+display('+++ Loading real measurements')
 
 % for phase_no=1:4
 %     [measurements{phase_no}, meta_info_measurements{phase_no}]=imreadraw_from_directory(['D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\Measurements\',num2str(phase_no),'\'],'.dng', crop_roi, bayer_color, plot_images.bool);
@@ -111,6 +114,7 @@ load measurements
 %% BLOB DETECTION AND PROCESSING
 % using morphological operations and blob detection algorithm to detect
 % bounding boxes of each and every measurement mask in image
+display('+++ Detecting bounding rectangles of masks')
 
 for phase_no=1:no_of_phases
     % load calibration image with all pixels in 8x8 square switched on for
@@ -122,6 +126,8 @@ end
 
 %% LOAD SYNTHETIC MASKS - REAL MEASUREMENTS MASKS AND CALIBRATION MASKS
 % crop to only one synthetic submask - loaded images contain multiple masks
+display('+++ Loading synthetic submasks')
+
 crop_masks.bool=1;
 crop_masks.roi_x_start=0;
 crop_masks.roi_y_start=0;
@@ -136,7 +142,8 @@ crop_masks.block_size=synth_mask_size(1);
 [synth_calib_masks, synth_calib_mask_number_of_ones]=loadSyntheticMasks('D:\Diplomski rad\1280x800 Patterns\Different Percentage Masks\1. Random Pattern\1\','.png', crop_masks, 0);
 
 
-%% CROP REAL IMAGES BY PHASE ROI
+%% CROP REAL IMAGES BY PHASE ROIs
+display('+++ Processing images - Structured Light Compressive Sensing')
 
 % variable that holds sum of all 4 phases in our ROI - image reconstruction
 summed_measurements_image=0;
@@ -231,13 +238,13 @@ for phase_no=1:no_of_phases
         
         calib_measurement_avg_value_regresion=A.*(synth_calib_mask_number_of_ones.^gamma);
         
-        % plot gamma correction function
-        figure(109)
-        plot(synth_calib_mask_number_of_ones(1:downsample_factor:end)', [calib_measurement_avg_value(1:downsample_factor:end)' calib_measurement_avg_value_regresion(1:downsample_factor:end)'])
-        title('Gamma Correction Function - model and real')
-        
-        xlabel('Number of Ones In A Mask')
-        ylabel('Intensity Sum')
+%         % plot gamma correction function
+%         figure(109)
+%         plot(synth_calib_mask_number_of_ones(1:downsample_factor:end)', [calib_measurement_avg_value(1:downsample_factor:end)' calib_measurement_avg_value_regresion(1:downsample_factor:end)'])
+%         title('Gamma Correction Function - model and real')
+%         
+%         xlabel('Number of Ones In A Mask')
+%         ylabel('Intensity Sum')
         
         inv_gamma_function=polyfit(log(calib_measurement_avg_value(1:downsample_factor:end)),log(synth_calib_mask_number_of_ones(1:downsample_factor:end)), 1);
         
@@ -247,18 +254,18 @@ for phase_no=1:no_of_phases
         
         synth_calib_mask_number_of_ones_inv=B*(calib_measurement_avg_value.^lambda);
         
-        % plot inverse gamma correction funcrion
-        figure(110)
-        
-        title('Inverse Gamma Correction Function - model')
-        plot(calib_measurement_avg_value(1:downsample_factor:end)', synth_calib_mask_number_of_ones_inv(1:downsample_factor:end)')
-        
-        xlabel('Intensity Sum')
-        ylabel('Number of Ones In A Mask')
+%         % plot inverse gamma correction funcrion
+%         figure(110)
+%         
+%         title('Inverse Gamma Correction Function - model')
+%         plot(calib_measurement_avg_value(1:downsample_factor:end)', synth_calib_mask_number_of_ones_inv(1:downsample_factor:end)')
+%         
+%         xlabel('Intensity Sum')
+%         ylabel('Number of Ones In A Mask')
         
         % degamma measurement
         y=B*(measurement_value.^lambda);
-         
+
         %% COMPRESSIVE SENSING
         
         % number of measurements used in image reconstruction
@@ -276,14 +283,17 @@ for phase_no=1:no_of_phases
 
     end
 end
+
 %%
+display('+++ Results visualization')
+
 % plot whole scene reconstruction
 figure, imagesc(summed_measurements_image), colormap gray, title('Whole Image'), axis image
 
 % reshape reconstructed subimages to reconstructed image
 reconstructed_image=subimagesToImageReshape(subimage_estimations, synth_mask_size);
 
-figure, imshow(reconstructed_image), colormap gray, title('Reconstruction'), axis image
+figure, imshow(reconstructed_image, 'InitialMagnification', 'fit'), colormap gray, title('Reconstruction'), axis image
 %% MEASUREMENT VISUALIZATION
 
 mv=(imresize(summed_measurements_image,[144 144]));
