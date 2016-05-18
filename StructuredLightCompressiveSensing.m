@@ -20,6 +20,7 @@ addpath('utilities')
 no_of_phases=4;
 no_of_calib_measurements=4;
 
+synth_mask_size=[8 8];
 % global variable used to determine which of 4 Bayer CFA color is being
 % used in further processing - you can choose between:
 % R - only red channel
@@ -64,6 +65,7 @@ rectangle('Position', [crop_roi.roi_x_start, crop_roi.roi_y_start, crop_roi.bloc
 
 average_background_noise = estimateAverageBackgroundNoise(backgrounds, plot_images.bool);
 
+clear backgrounds meta_info_backgrounds
 %% LOAD CALIBRATION MEASUREMENTS
 % calibration measurements are different percentage masks images 
 % used to estimate gamma distortion in camera-projector system
@@ -115,7 +117,7 @@ for phase_no=1:no_of_phases
     % easier bounding rectangle detection and easier crop
     image{phase_no}=im2double(calib_measurements{phase_no}{1}{64}-average_background_noise);
     
-    bounding_box{phase_no}=detectMaskBoundingRectangles(image{phase_no}, average_background_noise);
+    [bounding_box{phase_no}, blocks_no_x, blocks_no_y]=detectMaskBoundingRectangles(image{phase_no}, average_background_noise);
 end
 
 %% LOAD SYNTHETIC MASKS - REAL MEASUREMENTS MASKS AND CALIBRATION MASKS
@@ -123,7 +125,7 @@ end
 crop_masks.bool=1;
 crop_masks.roi_x_start=0;
 crop_masks.roi_y_start=0;
-crop_masks.block_size=8;
+crop_masks.block_size=synth_mask_size(1);
 
 % load synth measurement masks and produce measurement matrix phi and
 % calculate number of ones(sum of ones in each mask should be 32)
@@ -141,6 +143,7 @@ summed_measurements_image=0;
 
 for phase_no=1:no_of_phases
     for bbox_no=1:size(bounding_box{phase_no},1)
+        
         % define active block for processing using ROIs detected by blob
         % detection algorithm - crop real measurements
         crop{phase_no}.roi_x_start=bounding_box{phase_no}(bbox_no,1);
@@ -258,150 +261,38 @@ for phase_no=1:no_of_phases
          
         %% COMPRESSIVE SENSING
         
-        % psi matrix generation - depending in which domain problem is sparse, use
-        % corresponding transformation matrix
-        
-%         N=64;
-%         
-%         DCTm = dctmtx(N);
-%         IDCTm = dctmtx(N)';
-%         
-%         psi=DCTm;
-%         psi_inv=IDCTm;
-
-
         % number of measurements used in image reconstruction
-        no_of_measurements_for_reconstruction=25;
+        no_of_measurements_for_reconstruction=32;
         
         phi_r=phi(1:no_of_measurements_for_reconstruction,:);
         
         % defining matrix theta y=theta*x
         theta = full(phi_r*psi_inv); % Phi_m * Psi^(-1)
         
-        % standard dual form: data conditioning for minimum L1 - SeDuMi algorithm
-        % input data preparation for the problem
+        subimage_estimation = L1OptimizationCVX(y, psi, psi_inv, theta, no_of_measurements_for_reconstruction);
+%         im_gray_est = L1OptimizationSeDuMi(y, theta, no_of_measurements_for_reconstruction);
         
-        
-        %%
-        
-%         [M,N]=size(theta);
-%         
-%         b = [ spalloc(N,1,0); -sparse(ones(N,1)) ];
-%         
-%         At = [ -sparse(theta)   ,     spalloc(M,N,0)    ;...
-%             sparse(theta)   ,     spalloc(M,N,0)    ;...
-%             speye(N)        ,    -speye(N)          ;...
-%             -speye(N)        ,    -speye(N)          ;...
-%             spalloc(N,N,0)  ,    -speye(N)          ];
-%         
-%         % SEDUMI OPTIMIZATION
-%         
-%         for phase_no=1:no_of_phases
-%         
-%                 % Standard dual form: data conditioning for minimum L1
-%         
-%                 c = [ -sparse(y{phase_no}(:)); sparse(y{phase_no}(:)); spalloc(3*N,1,0) ];
-%         
-%                 % Optimization
-%                 tic, [~,s]=sedumi(At, b, c); toc % SeDuMi
-%         
-%                 % Output data processing
-%                 s=s(:);
-%                 s=s(1:N);
-%         
-%                 yr{phase_no} = psi_inv * s;
-%         
-%                 yr{phase_no}= reshape(yr{phase_no},8,8);
-%         end
-%         
-%         image_reconstruction=[yr{1} yr{2}; yr{3} yr{4}];
-%         
-%         figure, imshow(image_reconstruction), colormap gray, title('Reconstruction'), axis image
-%         
-        
-        %% CVX SOLVER - alternative to SeDuMi
-        
-        image_est = [];
-        
-        % Reconstructing initial signal
-        cvx_solver sedumi
-        
-        cvx_begin quiet
-        cvx_precision high
-        
-        variable s_est(64, 1);
-        minimize(norm(s_est, 1));
-        subject to
-        theta * s_est == y(1:no_of_measurements_for_reconstruction)';
-        
-        cvx_end
-        
-        image_est = (psi_inv * s_est).';
-        %     image_est = idct2(s_est);
-        
-        im_gray_est{phase_no}{bbox_no} = (reshape(image_est, 8, 8));
-        im_gray_est_vector{phase_no}{bbox_no} = image_est;
-        %         figure(101), imagesc(im_gray_est{phase_no}{bbox_no}), colormap gray
- 
-        %         image_gray{phase_no}=[im_gray_est{phase_no}{1}, im_gray_est{}]
+        subimage_estimations{phase_no}{bbox_no} = (reshape(subimage_estimation, 8, 8));
 
     end
 end
-
+%%
 % plot whole scene reconstruction
 figure, imagesc(summed_measurements_image), colormap gray, title('Whole Image'), axis image
 
+% reshape reconstructed subimages to reconstructed image
+reconstructed_image=subimagesToImageReshape(subimage_estimations, synth_mask_size);
 
-%%
+figure, imshow(reconstructed_image), colormap gray, title('Reconstruction'), axis image
+%% MEASUREMENT VISUALIZATION
 
-zero_matrix=zeros(8,8);
-scene_reconstruction=zeros(144,144);
-
-for bbox_no=1:81
-    phase{1}{bbox_no}=[im_gray_est{1}{bbox_no}, zero_matrix; zero_matrix, zero_matrix];
-    phase{2}{bbox_no}=[zero_matrix, im_gray_est{2}{bbox_no}; zero_matrix, zero_matrix];
-    phase{3}{bbox_no}=[zero_matrix, zero_matrix; im_gray_est{3}{bbox_no}, zero_matrix];
-    phase{4}{bbox_no}=[zero_matrix, zero_matrix; zero_matrix, im_gray_est{4}{bbox_no}];
-    
-end
-
-
-phase_vector=(cell2mat(phase{1})+cell2mat(phase{2})+cell2mat(phase{3})+cell2mat(phase{4}))';
-phase_vector=(phase_vector);
-
-% phase_vector=phase_vector';
-
-figure
-imshow(phase_vector)
-
-rSize=16;
-cSize=16;
-
-newMat=[];
-
-for r=1:9
-    subRow=[];
-    for c=1:9
-        subRow=[subRow phase_vector(1:rSize,:)];
-        phase_vector(1:rSize,:)=[];
-    end
-    newMat=[newMat; subRow];
-end
-
-figure
-imshow(newMat')
-
-%%
-
- bzvz=(imresize(summed_measurements_image,[400 400]));
-
+mv=(imresize(summed_measurements_image,[144 144]));
 
 fun = @(block_struct) mean2(block_struct.data);
 
-I2 = blockproc(bzvz,[8 8],fun);
+measurement_visualization = blockproc(mv,[8 8],fun);
+measurement_visualization=(imresize(measurement_visualization,8,'nearest'));
+figure, imagesc(measurement_visualization), colormap gray, axis image, title('Measurement Image')
 
-figure
-imagesc(I2)
-colormap gray
 
 toc

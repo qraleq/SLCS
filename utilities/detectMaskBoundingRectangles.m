@@ -1,8 +1,8 @@
-function bbox = detectMaskBoundingRectangles(image, average_background_noise)
+function [bbox, blocks_no_x, blocks_no_y] = detectMaskBoundingRectangles(image, average_background_noise)
 
 % use morphological operations on "white" calibration image so our roi is
 % extended and so that we crop whole measurement mask
-se_dilate=strel('square', 10);
+se_dilate=strel('square', 8);
 image_dilate=imdilate(image, se_dilate);
 
 % convert image to bw by tresholding everything above 4*mean value of
@@ -25,8 +25,12 @@ indices = find(area<average_blob_size);
 sorted_region_props_filtered(indices,:) = [];
 centroid(indices,:)=[];
 
-[N1,edges1,bin1] = histcounts(centroid(:,1),9);
-[N2,edges2,bin2] = histcounts(centroid(:,2),9);
+blocks_no_x=uint8(sqrt(size(centroid,1)));
+blocks_no_y=uint8(sqrt(size(centroid,1)));
+
+% classify detected blob centroids into bins
+[N1,edges1,bin1] = histcounts(centroid(:,1), blocks_no_x);
+[N2,edges2,bin2] = histcounts(centroid(:,2), blocks_no_y);
 
 sorted_region_props_filtered=[sorted_region_props_filtered bin1 bin2];
 % sort region props by centroid values
