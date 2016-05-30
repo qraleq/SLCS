@@ -1,4 +1,4 @@
-function [psi, psi_inv]=generateMatrixPsi(psi_type, wavelet_type)
+function [psi, psi_inv, S]=generateMatrixPsi(psi_type, wavelet_type)
 
 %% TRANSFORMATION MATRICES PSI GENERATION
 % in the CS problem, linear bases are usually defined by matrices Phi and Psi

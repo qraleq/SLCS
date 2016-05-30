@@ -1,4 +1,4 @@
-function [image_est]=L1OptimizationCVX(y, psi, psi_inv, theta, no_of_measurements_for_reconstruction)
+function [image_est]=L1OptimizationCVX(y, psi, psi_inv, theta, no_of_measurements_for_reconstruction,S)
 
 %% CVX SOLVER - alternative to SeDuMi
 
@@ -17,5 +17,9 @@ cvx_begin quiet
 cvx_end
 
 image_est = (psi_inv * s_est).';
+
+signal_est = waverec2(s_est, S, 'haar');
+
+
 %     image_est = idct2(s_est);
 

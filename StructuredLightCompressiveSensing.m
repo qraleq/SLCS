@@ -35,7 +35,7 @@ plot_images.bool=0;
 % generate transformation matrix psi - choice between dct and wav
 % wavelet type - 'haar', 'db2', 'db4', 'sym4', 'sym8', ...
 
-[psi, psi_inv]=generateMatrixPsi('dct',[]);
+[psi, psi_inv, S]=generateMatrixPsi('wav', 'haar');
 
 %% SET CROP ROI ON IMAGE
 % determine region of interest(roi) on scene image and plot it
@@ -276,7 +276,9 @@ for phase_no=1:no_of_phases
         % defining matrix theta y=theta*x
         theta = full(phi_r*psi_inv); % Phi_m * Psi^(-1)
         
-        subimage_estimation = L1OptimizationCVX(y, psi, psi_inv, theta, no_of_measurements_for_reconstruction);
+        subimage_estimation = L1OptimizationCVX(y, psi, psi_inv, theta, no_of_measurements_for_reconstruction,S);
+
+
 %         im_gray_est = L1OptimizationSeDuMi(y, theta, no_of_measurements_for_reconstruction);
         
         subimage_estimations{phase_no}{bbox_no} = (reshape(subimage_estimation, 8, 8));
@@ -288,7 +290,7 @@ end
 display('+++ Results visualization')
 
 % plot whole scene reconstruction
-figure, imagesc(summed_measurements_image), colormap gray, title('Whole Image'), axis image
+figure, imagesc(summed_measurements_image(1:2:end,1:2:end)), colormap gray, title('Whole Image'), axis image
 
 % reshape reconstructed subimages to reconstructed image
 reconstructed_image=subimagesToImageReshape(subimage_estimations, synth_mask_size);
@@ -298,9 +300,10 @@ figure, imshow(reconstructed_image, 'InitialMagnification', 'fit'), colormap gra
 
 mv=(imresize(summed_measurements_image,[144 144]));
 
-fun = @(block_struct) mean2(block_struct.data);
 
+fun = @(block_struct) mean2(block_struct.data);
 measurement_visualization = blockproc(mv,[8 8],fun);
+
 measurement_visualization=(imresize(measurement_visualization,8,'nearest'));
 figure, imagesc(measurement_visualization), colormap gray, axis image, title('Measurement Image')
 
