@@ -18,8 +18,6 @@ cvx_end
 
 image_est = (psi_inv * s_est).';
 
-signal_est = waverec2(s_est, S, 'haar');
-
-
+% signal_est = waverec2(s_est, S, 'haar');
 %     image_est = idct2(s_est);
 

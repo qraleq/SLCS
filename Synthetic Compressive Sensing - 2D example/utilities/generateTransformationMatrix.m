@@ -1,4 +1,4 @@
-function [psi, psi_inv]=generateTransformationMatrix(psi_type, wavelet_type, block_size)
+function [psi, psi_inv, C, S]=generateTransformationMatrix(psi_type, wavelet_type, block_size)
 
 % Producing corresponding matrices of 2D linear transforms, typically given by MATLAB functions
 

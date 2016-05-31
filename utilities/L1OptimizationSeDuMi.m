@@ -1,4 +1,4 @@
-function []=L1OptimizationSeDuMi(y)
+function [image_est]=L1OptimizationSeDuMi(y, psi, psi_inv, theta, no_of_measurements_for_reconstruction)
 
 % standard dual form: data conditioning for minimum L1 - SeDuMi algorithm
 % input data preparation for the problem
@@ -14,26 +14,22 @@ At = [ -sparse(theta)   ,     spalloc(M,N,0)    ;...
 
 % SEDUMI OPTIMIZATION
 
-for phase_no=1:no_of_phases
-    
-    % Standard dual form: data conditioning for minimum L1
-    
-    c = [ -sparse(y{phase_no}(:)); sparse(y{phase_no}(:)); spalloc(3*N,1,0) ];
-    
-    % Optimization
-    tic, [~,s]=sedumi(At, b, c); toc % SeDuMi
-    
-    % Output data processing
-    s=s(:);
-    s=s(1:N);
-    
-    yr{phase_no} = psi_inv * s;
-    
-    yr{phase_no}= reshape(yr{phase_no},8,8);
-end
 
-image_reconstruction=[yr{1} yr{2}; yr{3} yr{4}];
+% Standard dual form: data conditioning for minimum L1
 
-figure, imshow(image_reconstruction), colormap gray, title('Reconstruction'), axis image
+c = [ -sparse(y(1:M)'); sparse(y(1:M)'); spalloc(3*N,1,0) ];
+
+% Optimization
+tic, [~,s_est]=sedumi(At, b, c); toc % SeDuMi
+
+% Output data processing
+s_est=s_est(:);
+s_est=s_est(1:N);
+
+image_est = (psi_inv * s_est).';
+
+
+
+
 
 

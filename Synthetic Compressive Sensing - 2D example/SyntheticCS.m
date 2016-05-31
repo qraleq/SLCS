@@ -1,7 +1,6 @@
 %% D. Sersic, M. Vucic, October 2015
 %% Update: I. Ralasic, May 2016
-
-% Compressive sensing (CS)
+% Compressive sensing (CS) - 2D example
 %
 % Assumption of sparsity
 % There is a linear base Psi in which observed phenomenon is sparse:
@@ -27,31 +26,29 @@
 % y - observations (measurements) in linear base Phi:
 %     y = Phi * x
 
-%% 2D example
-
-clear all
+clear
 close all
 clc
 
 addpath('utilities')
 
 image_est = [];
-psi_type='dct';
+psi_type='dwt';
+wavelet_type='haar';
+
+% Different optimization packages
+method = 'SeDuMi'; % Options: 'cvx', 'SeDuMi'
+
+% Choose block size
+block_size = 8;
 
 %% In the CS problem, linear bases are usually defined by matrices Phi and Psi
 
-block_size = 8;
-
-
-[psi, psi_inv]=generateTransformationMatrix('dct',[], block_size);
+[psi, psi_inv, C, S]=generateTransformationMatrix(psi_type,[], block_size);
 phi=generateMeasurementMatrix([],block_size);
 
-
-% Check the orthonormality
-% max(max(abs(R' * R - eye(size(R)))))  %  must be zero
-
 % Check coherence
-sqrt(size(phi,2)) * max(max(abs(phi'*psi_inv)));  % From 1 - incoherent to sqrt(size(phi,2)) - coherent
+sqrt(size(phi,2)) * max(max(abs(phi'*psi_inv)))  % From 1 - incoherent to sqrt(size(phi,2)) - coherent
 
 image = im2double(rgb2gray(imread('D:\Diplomski rad\peppers.png')));
 
@@ -64,8 +61,8 @@ figure, imagesc(image), title('Real image - resized'), colormap gray, axis image
 
 [rows, cols]=size(image);
 
+tic
 
-%%
 for k=1:block_size:rows-block_size+1
     for l=1:block_size:cols-block_size+1
         
@@ -80,60 +77,50 @@ for k=1:block_size:rows-block_size+1
         y = phi * reshape(sparsified_image, block_size*block_size, 1); % Ideally K sparse data
         
         % percentage of used measurements
-        p = 0.99; % desired M/N,   K <= M   << N
+        p = 0.9; % desired M/N,   K <= M   << N
         ind = rand(block_size*block_size, 1) > (1-p); % only M observations out of total N
         
         y_m = y(ind);
         phi_r = phi(ind,:); % reduced observation matrix (Phi_m)
         
-        %%
-        % CS reconstruction
-        % (L1 optimization problem)
+        % CS reconstruction - L1 optimization problem
         
-        % min_L1 s
-        % subject to y_m = Phi_m * Psi^(-1) * s
-        
-        % Different optimization packages
-        
-        method = 'SeDuMi'; % Options: 'cvx', 'SeDuMi'
+        % min_L1 subject to y_m = Phi_m * Psi^(-1) * s
         
         theta = phi_r*psi_inv;
+        [M,N]=size(theta);
         
         switch method
-            
             case 'SeDuMi'
-                %                 psi_inv = R_m*IDWT; % Phi_m * Psi^(-1)
-                %                 psi_inv = R_m*IDCTm; % Phi_m * Psi^(-1)
                 
                 % Standard dual form: data conditioning for minimum L1
                 
-                [N1,N2]=size(theta);
                 
-                b = [ spalloc(N2,1,0); -sparse(ones(N2,1)) ];
+                b = [ spalloc(N,1,0); -sparse(ones(N,1)) ];
                 
-                At = [ -sparse(theta) , spalloc(N1,N2,0) ;...
-                    sparse(theta) , spalloc(N1,N2,0) ;...
-                    speye(N2)         , -speye(N2)      ;...
-                    -speye(N2)         , -speye(N2)      ;...
-                    spalloc(N2,N2,0)   , -speye(N2)      ];
+                At = [ -sparse(theta) , spalloc(M,N,0) ;...
+                    sparse(theta) , spalloc(M,N,0) ;...
+                    speye(N)         , -speye(N)      ;...
+                    -speye(N)         , -speye(N)      ;...
+                    spalloc(N,N,0)   , -speye(N)      ];
                 
-                c = [ -sparse(y_m(:)); sparse(y_m(:)); spalloc(3*N2,1,0) ];
+                c = [ -sparse(y_m(:)); sparse(y_m(:)); spalloc(3*N,1,0) ];
                 
                 % Optimization
-                tic, [~,s_est]=sedumi(At,b,c); toc % SeDuMi
+                pars.fid=0; % suppress output
+                K.l = max(size(At));
+                
+                tic, [~,s_est]=sedumi(At,b,c,K,pars); toc % SeDuMi
                 
                 % Output data processing
                 s_est=s_est(:);
-                s_est=s_est(1:N2);
-                
-                %                 signal_est = psi_inv * s_est;
+                s_est=s_est(1:N);
                 
                 if(strcmp(psi_type,'dct'))
                     signal_est = (psi_inv * s_est).';
                     
                 elseif(strcmp(psi_type,'dwt'))
-                    [~,S] = wavedec2(image, n, wavelet_type); % conversion to 2D, wavelet decomposition
-                    signal_est = waverec2(s_est, S, wavelet); % wavelet reconstruction (inverse transform)
+                    signal_est = waverec2(s_est, S, wavelet_type); % wavelet reconstruction (inverse transform)
                 end
                 
                 
@@ -146,8 +133,9 @@ for k=1:block_size:rows-block_size+1
                 
             case 'cvx'
                 
+                cvx_solver mosek
                 cvx_begin quiet
-                variable s_est(N2, 1);
+                variable s_est(N, 1);
                 minimize( norm(s_est, 1) );
                 subject to
                 theta * s_est == y_m;
@@ -157,8 +145,7 @@ for k=1:block_size:rows-block_size+1
                     signal_est = (psi_inv * s_est).';
                     
                 elseif(strcmp(psi_type,'dwt'))
-                    [~,S] = wavedec2(image, n, wavelet_type); % conversion to 2D, wavelet decomposition
-                    signal_est = waverec2(s_est, S, wavelet); % wavelet reconstruction (inverse transform)
+                    signal_est = waverec2(s_est, S, wavelet_type); % wavelet reconstruction (inverse transform)
                 end
                 
                 image_est(k:k+block_size-1, l:l+block_size-1)= reshape(signal_est,[block_size block_size]);
@@ -171,5 +158,6 @@ for k=1:block_size:rows-block_size+1
     end
 end
 
+toc
 
 figure, imshow(image_est, 'InitialMagnification', 'fit'), title('Image Reconstruction - final'), colormap gray, axis image
