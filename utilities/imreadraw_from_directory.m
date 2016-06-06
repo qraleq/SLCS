@@ -62,7 +62,7 @@ for i=1:numberOfFiles
     %     raw_images_valid{i} = double(raw(y_origin:y_origin+height-1,x_origin:x_origin+width-1));
     
     if(crop.bool)
-        raw_images{i}=imcrop(raw_images{i},[crop.roi_x_start crop.roi_y_start crop.block_size crop.block_size]);
+        raw_images{i}=imcrop(raw_images{i},[crop.roi_x_start crop.roi_y_start crop.block_size_x crop.block_size_y]);
     end
     
 %     if(background_subtract.bool)
