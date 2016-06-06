@@ -84,7 +84,7 @@ crop_roi.bool=1;
 
 start_block_row=18;
 start_block_col=30;
-end_block_row=38;
+end_block_row=28;
 end_block_col=48;
 
 no_of_blocks_x=abs(end_block_col-start_block_col)+1;
@@ -130,17 +130,17 @@ display('+++ Loading calibration measurements')
 
 for phase_no=1:no_of_phases
     for no_measurement=1:no_of_calib_measurements
-
-    [calib_measurements{phase_no}{no_measurement}, ~]=imreadraw_from_directory(['D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\',num2str(no_measurement),'. Different Percentage Mask\',num2str(phase_no),'\'],'.dng', crop_roi, bayer_cfa_color, plot_images.bool);
-
-    % removes background noise from calibration measurements
-    calib_measurements{phase_no}{no_measurement}=removeBackgroundNoise(calib_measurements{phase_no}{no_measurement}, average_background_noise);
-
-    % writes current progress into console - loading images may take some
-    % time to process
-
-    phase_no, no_measurement
-
+        
+        [calib_measurements{phase_no}{no_measurement}, ~]=imreadraw_from_directory(['D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\',num2str(no_measurement),'. Different Percentage Mask\',num2str(phase_no),'\'],'.dng', crop_roi, bayer_cfa_color, plot_images.bool);
+        
+        % removes background noise from calibration measurements
+        calib_measurements{phase_no}{no_measurement}=removeBackgroundNoise(calib_measurements{phase_no}{no_measurement}, average_background_noise);
+        
+        % writes current progress into console - loading images may take some
+        % time to process
+        
+        phase_no, no_measurement
+        
     end
 end
 
@@ -283,13 +283,13 @@ for phase_no=1:no_of_phases
         
         calib_measurement_avg_value_regresion=A.*(synth_calib_mask_number_of_ones.^gamma);
         
-%         % plot gamma correction function
-%         figure(109)
-%         plot(synth_calib_mask_number_of_ones(1:downsample_factor:end)', [calib_measurement_avg_value(1:downsample_factor:end)' calib_measurement_avg_value_regresion(1:downsample_factor:end)'])
-%         title('Gamma Correction Function - model and real')
-%         
-%         xlabel('Number of Ones In A Mask')
-%         ylabel('Intensity Sum')
+        %         % plot gamma correction function
+        %         figure(109)
+        %         plot(synth_calib_mask_number_of_ones(1:downsample_factor:end)', [calib_measurement_avg_value(1:downsample_factor:end)' calib_measurement_avg_value_regresion(1:downsample_factor:end)'])
+        %         title('Gamma Correction Function - model and real')
+        %
+        %         xlabel('Number of Ones In A Mask')
+        %         ylabel('Intensity Sum')
         
         inv_gamma_function=polyfit(log(calib_measurement_avg_value(1:downsample_factor:end)),log(synth_calib_mask_number_of_ones(1:downsample_factor:end)), 1);
         
@@ -299,14 +299,14 @@ for phase_no=1:no_of_phases
         
         synth_calib_mask_number_of_ones_inv=B*(calib_measurement_avg_value.^lambda);
         
-%         % plot inverse gamma correction funcrion
-%         figure(110)
-%         
-%         title('Inverse Gamma Correction Function - model')
-%         plot(calib_measurement_avg_value(1:downsample_factor:end)', synth_calib_mask_number_of_ones_inv(1:downsample_factor:end)')
-%         
-%         xlabel('Intensity Sum')
-%         ylabel('Number of Ones In A Mask')
+        %         % plot inverse gamma correction funcrion
+        %         figure(110)
+        %
+        %         title('Inverse Gamma Correction Function - model')
+        %         plot(calib_measurement_avg_value(1:downsample_factor:end)', synth_calib_mask_number_of_ones_inv(1:downsample_factor:end)')
+        %
+        %         xlabel('Intensity Sum')
+        %         ylabel('Number of Ones In A Mask')
         
         % degamma measurement
         y=B*(measurement_value.^lambda);
@@ -321,10 +321,10 @@ for phase_no=1:no_of_phases
         % defining matrix theta y=theta*x
         theta = full(phi_r*psi_inv); % Phi_m * Psi^(-1)
         
-        %         subimage_estimation = L1OptimizationCVX(y, psi, psi_inv, theta, no_of_measurements_for_reconstruction,S);
+        subimage_estimation = L1OptimizationCVX(y, psi, psi_inv, theta, no_of_measurements_for_reconstruction,S);
         
         
-        subimage_estimation = L1OptimizationSeDuMi(y,  psi, psi_inv, theta, no_of_measurements_for_reconstruction);
+        %         subimage_estimation = L1OptimizationSeDuMi(y,  psi, psi_inv, theta, no_of_measurements_for_reconstruction);
         
         subimage_estimations{phase_no}{bbox_no} = (reshape(subimage_estimation, 8, 8));
         
