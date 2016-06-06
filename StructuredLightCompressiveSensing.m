@@ -136,7 +136,7 @@ crop_masks.block_size=synth_mask_size(1);
 % load synth measurement masks and produce measurement matrix phi and
 % calculate number of ones(sum of ones in each mask should be 32)
 
-[synth_masks, synth_mask_number_of_ones, phi]=loadSyntheticMasks('D:\Diplomski rad\1280x800 Patterns\Measurement Masks\1\','.png', crop_masks, 1);
+[synth_masks, synth_mask_number_of_ones, phi]=loadSyntheticMasks('D:\Diplomski rad\1280x800 Patterns\Measurement Masks\1\','.png', crop_masks, 0);
 
 % load calib masks and calculate number of ones in each mask
 [synth_calib_masks, synth_calib_mask_number_of_ones]=loadSyntheticMasks('D:\Diplomski rad\1280x800 Patterns\Different Percentage Masks\1. Random Pattern\1\','.png', crop_masks, 0);
@@ -238,13 +238,13 @@ for phase_no=1:no_of_phases
         
         calib_measurement_avg_value_regresion=A.*(synth_calib_mask_number_of_ones.^gamma);
         
-%         % plot gamma correction function
-%         figure(109)
-%         plot(synth_calib_mask_number_of_ones(1:downsample_factor:end)', [calib_measurement_avg_value(1:downsample_factor:end)' calib_measurement_avg_value_regresion(1:downsample_factor:end)'])
-%         title('Gamma Correction Function - model and real')
-%         
-%         xlabel('Number of Ones In A Mask')
-%         ylabel('Intensity Sum')
+        % plot gamma correction function
+        figure(109)
+        plot(synth_calib_mask_number_of_ones(1:downsample_factor:end)', [calib_measurement_avg_value(1:downsample_factor:end)' calib_measurement_avg_value_regresion(1:downsample_factor:end)'])
+        title('Gamma Correction Function - model and real')
+        
+        xlabel('Number of Ones In A Mask')
+        ylabel('Intensity Sum')
         
         inv_gamma_function=polyfit(log(calib_measurement_avg_value(1:downsample_factor:end)),log(synth_calib_mask_number_of_ones(1:downsample_factor:end)), 1);
         
@@ -254,14 +254,14 @@ for phase_no=1:no_of_phases
         
         synth_calib_mask_number_of_ones_inv=B*(calib_measurement_avg_value.^lambda);
         
-%         % plot inverse gamma correction funcrion
-%         figure(110)
-%         
-%         title('Inverse Gamma Correction Function - model')
-%         plot(calib_measurement_avg_value(1:downsample_factor:end)', synth_calib_mask_number_of_ones_inv(1:downsample_factor:end)')
-%         
-%         xlabel('Intensity Sum')
-%         ylabel('Number of Ones In A Mask')
+        % plot inverse gamma correction funcrion
+        figure(110)
+        
+        title('Inverse Gamma Correction Function - model')
+        plot(calib_measurement_avg_value(1:downsample_factor:end)', synth_calib_mask_number_of_ones_inv(1:downsample_factor:end)')
+        
+        xlabel('Intensity Sum')
+        ylabel('Number of Ones In A Mask')
         
         % degamma measurement
         y=B*(measurement_value.^lambda);

@@ -1,7 +1,8 @@
 function [phi]=generateMeasurementMatrix(phi_type, block_size)
 
 % Random unitary matrix (Phi)
-%         phi = randn(r*c);
+
+%         phi = randn(block_size*block_size);
 
 %         phi = rand(r*c);
 

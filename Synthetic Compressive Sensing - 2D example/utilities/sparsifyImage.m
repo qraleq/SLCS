@@ -12,9 +12,9 @@ im_wav= wavedec2(image, n, wavelet_type).'; % wavelet decomposition (transform)
 
 ss = sort(abs(im_wav));
 % desired sparsity percentage
-percentage = 0.99; % desired K/N
 thr = ss(ceil((1-percentage) * length(ss)));
 ss = wthresh(im_wav, 's', thr); % Seting N-K values of the wavelet coefficients to zero
 
 sparsified_image = waverec2(ss, S, wavelet_type); % wavelet reconstruction (inverse transform)
-%         figure, imagesc(sparsified_image), title('Ideally K sparse image'), colormap gray, axis image
+% figure
+% imshow(sparsified_image, 'InitialMagnification', 'fit'), title('Ideally K sparse image'), colormap gray, axis image

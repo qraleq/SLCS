@@ -97,7 +97,7 @@ elseif(strcmp(psi_type,'dct'))
         xr = idct2(reshape(delta,[rows,cols])); % reconstruction (inverse transform)
         psi_inv(:,i) = reshape(xr, rows*cols, 1).'; % conversion to 1D
     end
-    
+    S=[];
 end
 
 %% ALTERNATIVE DCT MATRIX PSI GENERATION

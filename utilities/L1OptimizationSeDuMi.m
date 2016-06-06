@@ -20,7 +20,9 @@ At = [ -sparse(theta)   ,     spalloc(M,N,0)    ;...
 c = [ -sparse(y(1:M)'); sparse(y(1:M)'); spalloc(3*N,1,0) ];
 
 % Optimization
-tic, [~,s_est]=sedumi(At, b, c); toc % SeDuMi
+pars.fid=0; % suppress output
+K.l = max(size(At));
+tic, [~,s_est]=sedumi(At,b,c,K,pars); toc % SeDuMi
 
 % Output data processing
 s_est=s_est(:);
