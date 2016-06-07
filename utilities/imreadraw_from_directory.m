@@ -1,4 +1,4 @@
-function [raw_images, meta_info]=imreadraw_from_directory(directory, extension, crop, bayer_color, plot)
+function [raw_images]=imreadraw_from_directory(directory, extension, crop, bayer_color, plot)
 
 D=dir([directory,'*',extension]);
 directory_scene=directory;
@@ -9,7 +9,7 @@ for i=1:numberOfFiles
     
     filename = [directory_scene, num2str(i,'mask_%0.03d'),extension]; % Put file name here
     
-    warning off MATLAB:tifflib:TIFFReadDirectory:libraryWarning
+%     warning off MATLAB:tifflib:TIFFReadDirectory:libraryWarning
     warning off
     
     t{i} = Tiff(filename,'r');
@@ -17,7 +17,7 @@ for i=1:numberOfFiles
     setSubDirectory(t{i},offsets{i}(1));
     raw_images{i} = double(read(t{i})); % Create variable 'raw', the Bayer CFA data
     close(t{i});
-    meta_info{i} = imfinfo(filename);
+%     meta_info{i} = imfinfo(filename);
     
     % choose which color you want to extract from Bayer CFA
     if(bayer_color=='r')

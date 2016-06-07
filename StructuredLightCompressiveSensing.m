@@ -1,4 +1,4 @@
-clear all
+clear
 close all
 clc
 
@@ -41,31 +41,33 @@ crop_dummy.bool=0;
 
 [psi, psi_inv, S]=generateMatrixPsi('dct', []);
 
-%% LOAD BACKGROUND IMAGES
+%% LOAD BACKGROUND IMAGES & ESTIMATE AVERAGE BACKGROUND NOISE IMAGE
 display('+++ Loading background images and estimating average background noise image')
 
-[backgrounds, ~] = imreadraw_from_directory('D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\Backgrounds\','.dng', crop_dummy, bayer_cfa_color, plot_images.bool);
+% backgrounds = imreadraw_from_directory('D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\Backgrounds\','.dng', crop_dummy, bayer_cfa_color, [], plot_images.bool);
+%
+% average_background_noise = estimateAverageBackgroundNoise(backgrounds, plot_images.bool);
+%
+% clear backgrounds meta_info_backgrounds
+%
+% save('average_background_noise','average_background_noise')
 
-%% ESTIMATE AVERAGE BACKGROUND NOISE IMAGE
-
-average_background_noise = estimateAverageBackgroundNoise(backgrounds, plot_images.bool);
-
-clear backgrounds meta_info_backgrounds
+load average_background_noise
 
 %% BLOB DETECTION AND (PRE)PROCESSING
 % using morphological operations and blob detection algorithm to detect
 % bounding boxes of each and every measurement mask in image
 display('+++ Detecting bounding rectangles of masks')
 
-for phase_no=1:4
-    [blobs_images{phase_no}, ~]=imreadraw(['D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\1. Different Percentage Mask\',num2str(phase_no),'\mask_064.dng'], crop_dummy, bayer_cfa_color);
+for phase_no=1:no_of_phases
+    blobs_images{phase_no}=imreadraw(['D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\2. Different Percentage Mask\',num2str(phase_no),'\mask_005.dng'], crop_dummy, bayer_cfa_color);
+    
     blobs_images{phase_no}=im2double(blobs_images{phase_no}-average_background_noise);
     
     % load calibration image with all pixels in 8x8 square switched on for
     % easier bounding rectangle detection and easier crop
-    blobs_images{phase_no}=im2double(blobs_images{phase_no}-average_background_noise.^1.1);
-    
-    [bounding_box{phase_no}, blocks_rows, blocks_cols]=detectMaskBoundingRectangles(blobs_images{phase_no}, average_background_noise, projectorRes, plot_images);
+        
+    [bounding_box{phase_no}, blocks_cols, blocks_rows]=detectMaskBoundingRectangles(blobs_images{phase_no}, average_background_noise, projectorRes, plot_images);
 end
 
 %% SET CROP ROI ON IMAGE
@@ -82,39 +84,104 @@ hold on
 % defining crop_roi struct containing details about crop roi
 crop_roi.bool=1;
 
-start_block_row=18;
-start_block_col=30;
-end_block_row=28;
-end_block_col=48;
+row_start_block=18;
+col_start_block=30;
+row_end_block=23;
+col_end_block=35;
 
-no_of_blocks_x=abs(end_block_col-start_block_col)+1;
-no_of_blocks_y=abs(end_block_row-start_block_row)+1;
+row_start_block=5;
+col_start_block=2;
+row_end_block=14;
+col_end_block=10;
 
-start_block_no=start_block_row+blocks_cols*(start_block_col-1);
-end_block_no=end_block_row+blocks_cols*(end_block_col-1);
+rows_ind=row_start_block:row_end_block;
+cols_ind=col_start_block:col_end_block;
 
-crop_roi.roi_x_start=bounding_box{1}(start_block_no, 1)*0.99;
-crop_roi.roi_y_start=bounding_box{1}(start_block_no, 2)*0.99;
+for phase_no=1:no_of_phases
+    
+    R{phase_no} = bounding_box{phase_no}(ismember(bounding_box{phase_no}(:, 8), rows_ind), :);
+%     R{phase_no} = R{phase_no}(ismember(R{phase_no}(:, 9), cols_ind), :);
+    
+end
 
-roi_x_end=bounding_box{4}(end_block_no, 1)+bounding_box{4}(end_block_no, 3)*1.1;
-roi_y_end=bounding_box{4}(end_block_no, 2)+bounding_box{4}(end_block_no, 4)*1.1;
+crop_roi.roi_x_start=(R{1}(1, 2)*0.99);
+crop_roi.roi_y_start=(R{1}(1, 1)*0.99);
+
+roi_x_end=R{4}(end, 2)+R{4}(end, 4)*1.1;
+roi_y_end=R{4}(end, 1)+R{4}(end, 3)*1.1;
 
 crop_roi.block_size_x=roi_x_end-crop_roi.roi_x_start;
 crop_roi.block_size_y=roi_y_end-crop_roi.roi_y_start;
 
-% draw rectangle on desired image roi
 rectangle('Position', [crop_roi.roi_x_start, crop_roi.roi_y_start, crop_roi.block_size_x, crop_roi.block_size_y],'EdgeColor', 'r', 'LineWidth', 2);
+
+blobs_images_crop=imcrop(blobs_images{1},[crop_roi.roi_x_start, crop_roi.roi_y_start, crop_roi.block_size_x, crop_roi.block_size_y]);
+
+% figure
+% I = im2uint8(blobs_images_crop);
+% imshow(I, 'InitialMag', 'fit')
+% hold on
+% 
+% for phase_no=1:no_of_phases
+%    for ind=1:size(R{1},1)
+%        R{phase_no}(ind,1)=R{phase_no}(ind,1)-crop_roi.roi_y_start;
+%        R{phase_no}(ind,2)=R{phase_no}(ind,2)-crop_roi.roi_x_start;
+%    end
+% end
+
+
+
+
+%%
+% crop_roi.roi_x_start=(bounding_box{1}(start_block_no, 1)*0.99);
+% crop_roi.roi_y_start=(bounding_box{1}(start_block_no, 2)*0.99);
+% 
+% 
+% no_of_blocks_x=abs(col_end_block-col_start_block)+1;
+% no_of_blocks_y=abs(row_end_block-row_start_block)+1;
+% 
+% start_block_no=row_start_block+blocks_rows*(col_start_block-1);
+% end_block_no=row_end_block+blocks_rows*(col_end_block-1);
+% 
+% crop_roi.roi_x_start=(bounding_box{1}(start_block_no, 1)*0.99);
+% crop_roi.roi_y_start=(bounding_box{1}(start_block_no, 2)*0.99);
+% 
+% roi_x_end=bounding_box{4}(end_block_no, 1)+bounding_box{4}(end_block_no, 3)*1.1;
+% roi_y_end=bounding_box{4}(end_block_no, 2)+bounding_box{4}(end_block_no, 4)*1.1;
+
+% crop_roi.block_size_x=roi_x_end-crop_roi.roi_x_start;
+% crop_roi.block_size_y=roi_y_end-crop_roi.roi_y_start;
+
+% % draw rectangle on desired image roi
+% rectangle('Position', [crop_roi.roi_x_start, crop_roi.roi_y_start, crop_roi.block_size_x, crop_roi.block_size_y],'EdgeColor', 'r', 'LineWidth', 2);
 
 %% SELECTING ROI BBOXES
 
+blobs_images_crop=imcrop(blobs_images{1},[crop_roi.roi_x_start, crop_roi.roi_y_start, crop_roi.block_size_x, crop_roi.block_size_y]);
 
-for phase_no=1:4
+figure
+I = im2uint8(blobs_images_crop);
+imshow(I, 'InitialMag', 'fit')
+hold on
+
+
+for phase_no=1:no_of_phases
     k=1;
-    for y_b=start_block_row:end_block_row
-        for x_b=start_block_col:end_block_col
-            bounding_box_roi{phase_no}(k,:)=bounding_box{phase_no}(x_b+y_b*blocks_cols,:);
+    for c_b=col_start_block:col_end_block
+        for r_b=row_start_block:row_end_block
+            
+            bounding_box_roi{phase_no}(k,:)=bounding_box{phase_no}(r_b+(c_b-1)*blocks_rows,:);
             bounding_box_roi{phase_no}(k,1)=bounding_box_roi{phase_no}(k,1)-crop_roi.roi_x_start;
             bounding_box_roi{phase_no}(k,2)=bounding_box_roi{phase_no}(k,2)-crop_roi.roi_y_start;
+            
+            bounding_box_roi{phase_no}(k,6)=bounding_box_roi{phase_no}(k,6)-crop_roi.roi_x_start;
+            bounding_box_roi{phase_no}(k,7)=bounding_box_roi{phase_no}(k,7)-crop_roi.roi_y_start;
+            
+            bounding_box_roi{phase_no} = sortrows(bounding_box_roi{phase_no},[8, 9]);
+            
+            rectangle('Position', [bounding_box_roi{phase_no}(k,1), bounding_box_roi{phase_no}(k,2),bounding_box_roi{phase_no}(k,3),bounding_box_roi{phase_no}(k,4)],'EdgeColor', 'r', 'LineWidth', 3);
+            
+            text(bounding_box_roi{phase_no}(k,6), bounding_box_roi{phase_no}(k,7), sprintf('%d', k), 'Color', 'b');
             
             k=k+1;
         end
@@ -123,32 +190,34 @@ end
 
 average_background_noise=imcrop(average_background_noise, [crop_roi.roi_x_start, crop_roi.roi_y_start, crop_roi.block_size_x, crop_roi.block_size_y]);
 
+
 %% LOAD CALIBRATION MEASUREMENTS
 % calibration measurements are different percentage masks images
 % used to estimate gamma distortion in camera-projector system
 display('+++ Loading calibration measurements')
 
-for phase_no=1:no_of_phases
-    for no_measurement=1:no_of_calib_measurements
-        
-        [calib_measurements{phase_no}{no_measurement}, ~]=imreadraw_from_directory(['D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\',num2str(no_measurement),'. Different Percentage Mask\',num2str(phase_no),'\'],'.dng', crop_roi, bayer_cfa_color, plot_images.bool);
-        
-        % removes background noise from calibration measurements
-        calib_measurements{phase_no}{no_measurement}=removeBackgroundNoise(calib_measurements{phase_no}{no_measurement}, average_background_noise);
-        
-        % writes current progress into console - loading images may take some
-        % time to process
-        
-        phase_no, no_measurement
-        
-    end
-end
 
+% for phase_no=1:no_of_phases
+%     for no_measurement=1:no_of_calib_measurements
+%
+%         calib_measurements{phase_no}{no_measurement}=imreadraw_from_directory(['D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\',num2str(no_measurement),'. Different Percentage Mask\',num2str(phase_no),'\'],'.dng', crop_roi, bayer_cfa_color, plot_images.bool);
+%
+%         % removes background noise from calibration measurements
+%         calib_measurements{phase_no}{no_measurement}=removeBackgroundNoise(calib_measurements{phase_no}{no_measurement}, average_background_noise);
+%
+%         % writes current progress into console - loading images may take some
+%         % time to process
+%
+%         phase_no, no_measurement
+%
+%     end
+% end
+%
+%
+% % save cablib_measurements variable because its loading time is too long
+% save('calib_measurements','calib_measurements')
 
-% save cablib_measurements variable because its loading time is too long
-save('calib_measurements','calib_measurements')
-
-% load calib_measurements
+load calib_measurements
 
 %% LOAD REAL MEASUREMENTS
 % real measurements are done by projecting 50% binary masks onto a real
@@ -157,17 +226,17 @@ save('calib_measurements','calib_measurements')
 % calibration measurements
 display('+++ Loading real measurements')
 
-for phase_no=1:4
-    [measurements{phase_no}, ~]=imreadraw_from_directory(['D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\Measurements\',num2str(phase_no),'\'],'.dng', crop_roi, bayer_cfa_color, plot_images.bool);
-    measurements{phase_no}=removeBackgroundNoise(measurements{phase_no}, average_background_noise);
-    
-    phase_no
-end
+% for phase_no=1:no_of_phases
+%     measurements{phase_no}=imreadraw_from_directory(['D:\Diplomski rad\Shootings\Shooting - 5.5. - FER - dng\Measurements\',num2str(phase_no),'\'],'.dng', crop_roi, bayer_cfa_color, plot_images.bool);
+%     measurements{phase_no}=removeBackgroundNoise(measurements{phase_no}, average_background_noise);
+%
+%     phase_no
+% end
+%
+% % save measurements variable because its loading time is too long
+% save('measurements', 'measurements')
 
-% save measurements variable because its loading time is too long
-save('measurements', 'measurements')
-
-% load measurements
+load measurements
 
 %% LOAD SYNTHETIC MASKS - REAL MEASUREMENTS MASKS AND CALIBRATION MASKS
 % crop to only one synthetic submask - loaded images contain multiple masks
@@ -185,7 +254,6 @@ crop_masks.block_size=synth_mask_size(1);
 
 % load calib masks and calculate number of ones in each mask
 [synth_calib_masks, synth_calib_mask_number_of_ones]=loadSyntheticMasks('D:\Diplomski rad\1280x800 Patterns\Different Percentage Masks\1. Random Pattern\1\','.png', crop_masks, 0);
-
 
 %% CROP REAL IMAGES BY PHASE ROIs
 display('+++ Processing images - Structured Light Compressive Sensing')
@@ -283,13 +351,13 @@ for phase_no=1:no_of_phases
         
         calib_measurement_avg_value_regresion=A.*(synth_calib_mask_number_of_ones.^gamma);
         
-        %         % plot gamma correction function
-        %         figure(109)
-        %         plot(synth_calib_mask_number_of_ones(1:downsample_factor:end)', [calib_measurement_avg_value(1:downsample_factor:end)' calib_measurement_avg_value_regresion(1:downsample_factor:end)'])
-        %         title('Gamma Correction Function - model and real')
-        %
-        %         xlabel('Number of Ones In A Mask')
-        %         ylabel('Intensity Sum')
+        % plot gamma correction function
+        figure(109)
+        plot(synth_calib_mask_number_of_ones(1:downsample_factor:end)', [calib_measurement_avg_value(1:downsample_factor:end)' calib_measurement_avg_value_regresion(1:downsample_factor:end)'])
+        title('Gamma Correction Function - model and real')
+        
+        xlabel('Number of Ones In A Mask')
+        ylabel('Intensity Sum')
         
         inv_gamma_function=polyfit(log(calib_measurement_avg_value(1:downsample_factor:end)),log(synth_calib_mask_number_of_ones(1:downsample_factor:end)), 1);
         
