@@ -43,7 +43,7 @@ method = 'SeDuMi'; % Options: 'cvx', 'SeDuMi'
 % Choose block size
 block_size = 8;
 
-no_of_measurements  = 32; % desired M << N
+no_of_measurements  = 64; % desired M << N
 sparsity_percentage = 0.9999999999; % percentage of coefficients to be left
 
 %% In the CS problem, linear bases are usually defined by matrices Phi and Psi
@@ -60,7 +60,7 @@ figure
 imshow(image, 'InitialMagnification', 'fit'), title('Original image'), colormap gray, axis image
 
 % image=imresize(image,[round(size(image,1)/16)*8,round(size(image,2)/16)*8]);
-image=imresize(image,[64 64]);
+% image=imresize(image,[64 64]);
 
 figure
 imshow(image, 'InitialMagnification', 'fit'), title('Original image - resized'), colormap gray, axis image
@@ -81,7 +81,7 @@ for k=1:block_size:rows-block_size+1
         im=image(k:k+block_size-1, l:l+block_size-1);
         
         % last argument defines percentage of coefficients to be left
-%         sparsified_image=sparsifyImage(im,[], sparsity_percentage);
+        %         sparsified_image=sparsifyImage(im,[], sparsity_percentage);
         
         % Simulated observation
         
@@ -91,17 +91,17 @@ for k=1:block_size:rows-block_size+1
         
         % percentage of used measurements or number of used measurements
         
-%         p = 0.5; % desired M/N,   K <= M   << N
-%         ind = rand(block_size*block_size, 1) > (1-p); % only M observations out of total N
-%         
-%         y_m = y(ind);
-%         phi_r = phi(ind,:); % reduced observation matrix (Phi_m)
+        %         p = 0.5; % desired M/N,   K <= M   << N
+        %         ind = rand(block_size*block_size, 1) > (1-p); % only M observations out of total N
+        %
+        %         y_m = y(ind);
+        %         phi_r = phi(ind,:); % reduced observation matrix (Phi_m)
         
         ind = logical(randerr(1,block_size^2,no_of_measurements)); % only M observations out of total N
         
         y_m = y(ind);
         phi_r = phi(ind,:); % reduced observation matrix (Phi_m)
-
+        
         % CS reconstruction - L1 optimization problem
         
         % min_L1 subject to y_m = Phi_m * Psi^(-1) * s
@@ -129,11 +129,11 @@ for k=1:block_size:rows-block_size+1
                 pars.fid=0; % suppress output
                 K.l = max(size(At));
                 
-%                 tic
+                %                 tic
                 
                 [~,s_est]=sedumi(At,b,c,K,pars); % SeDuMi
                 
-%                 toc 
+                %                 toc
                 
                 % Output data processing
                 s_est=s_est(:);
@@ -149,7 +149,7 @@ for k=1:block_size:rows-block_size+1
                 
                 image_est(k:k+block_size-1, l:l+block_size-1) = reshape(signal_est, [block_size block_size]);
                 image_sparse(k:k+block_size-1, l:l+block_size-1)=im;
-                                
+                
                 figure(100)
                 imshow(image_est, 'InitialMagnification', 'fit'), title('Image Reconstruction'), colormap gray, axis image
                 drawnow
@@ -160,10 +160,10 @@ for k=1:block_size:rows-block_size+1
                 cvx_solver mosek
                 
                 cvx_begin quiet
-                    variable s_est(N, 1);
-                    minimize( norm(s_est, 1) );
-                    subject to
-                    theta * s_est == y_m;
+                variable s_est(N, 1);
+                minimize( norm(s_est, 1) );
+                subject to
+                theta * s_est == y_m;
                 cvx_end
                 
                 if(strcmp(psi_type,'dct'))

@@ -1,8 +1,8 @@
-function [reshaped]=subimagesToImageReshape(image_estimation, synth_mask_size, no_of_blocks_x, no_of_blocks_y)
+function [reshaped]=subimagesToImageReshape(image_estimation, synth_mask_size)
 
 zero_matrix=zeros(8,8);
 
-for bbox_no=1:no_of_blocks_x*no_of_blocks_y
+for bbox_no=1:81
     phase{1}{bbox_no}=[image_estimation{1}{bbox_no}, zero_matrix; zero_matrix, zero_matrix];
     phase{2}{bbox_no}=[zero_matrix, image_estimation{2}{bbox_no}; zero_matrix, zero_matrix];
     phase{3}{bbox_no}=[zero_matrix, zero_matrix; image_estimation{3}{bbox_no}, zero_matrix];
@@ -19,9 +19,9 @@ cSize=16;
 
 reshaped=[];
 
-for r=1:no_of_blocks_y
+for r=1:9
     subRow=[];
-    for c=1:no_of_blocks_x
+    for c=1:9
         subRow=[subRow blocksVector(1:rSize,:)];
         blocksVector(1:rSize,:)=[];
     end
