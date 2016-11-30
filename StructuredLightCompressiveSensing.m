@@ -36,7 +36,7 @@ plot_images.bool=0;
 % generate transformation matrix psi - choice between dct and wav
 % wavelet type - 'haar', 'db2', 'db4', 'sym4', 'sym8', ...
 
-[psi, psi_inv, S]=generateMatrixPsi('dct', []);
+[psi, psi_inv, S]=generateMatrixPsi('wav', 'haar');
 
 %% SET CROP ROI ON IMAGE
 % determine region of interest(roi) on scene image and plot it
@@ -73,27 +73,27 @@ clear backgrounds meta_info_backgrounds
 % used to estimate gamma distortion in camera-projector system
 display('+++ Loading calibration measurements')
 
-% for phase_no=1:no_of_phases
-%     for no_measurement=1:no_of_calib_measurements
-%
-%     [calib_measurements{phase_no}{no_measurement}, meta_info_calib_measurements{phase_no}{no_measurement}]=imreadraw_from_directory(['D:\Projects\MATLAB Projects\Structured Light Compressive Sensing\data\Shooting - 5.5. - FER - dng\',num2str(no_measurement),'. Different Percentage Mask\',num2str(phase_no),'\'],'.dng', crop_roi, bayer_color, plot_images.bool);
-%
-%     % removes background noise from calibration measurements
+for phase_no=1:no_of_phases
+    for no_measurement=1:no_of_calib_measurements
+
+    [calib_measurements{phase_no}{no_measurement}, meta_info_calib_measurements{phase_no}{no_measurement}]=imreadraw_from_directory(['D:\Projects\MATLAB Projects\Structured Light Compressive Sensing\data\Shooting - 5.5. - FER - dng\',num2str(no_measurement),'. Different Percentage Mask\',num2str(phase_no),'\'],'.dng', crop_roi, bayer_cfa_color, plot_images.bool, 'rggb');
+
+    % removes background noise from calibration measurements
 %     calib_measurements{phase_no}{no_measurement}=removeBackgroundNoise(calib_measurements{phase_no}{no_measurement}, backgrounds_avg);
-%
-%     % writes current progress into console - loading images may take some
-%     % time to process
-% 
-%     phase_no, no_measurement
-% 
-%     end
-% end
+
+    % writes current progress into console - loading images may take some
+    % time to process
+
+    phase_no, no_measurement
+
+    end
+end
 %
 % 
 % % save cablib_measurements variable because its loading time is too long
 % % save('calib_measurements','calib_measurements')
 
-load calib_measurements
+% load calib_measurements
 
 %% LOAD REAL MEASUREMENTS
 % real measurements are done by projecting 50% binary masks onto a real
@@ -102,15 +102,15 @@ load calib_measurements
 % calibration measurements
 display('+++ Loading real measurements')
 
-% for phase_no=1:4
-%     [measurements{phase_no}, meta_info_measurements{phase_no}]=imreadraw_from_directory(['D:\Projects\MATLAB Projects\Structured Light Compressive Sensing\data\Shooting - 5.5. - FER - dng\Measurements\',num2str(phase_no),'\'],'.dng', crop_roi, bayer_color, plot_images.bool);
+for phase_no=1:4
+    [measurements{phase_no}, meta_info_measurements{phase_no}]=imreadraw_from_directory(['D:\Projects\MATLAB Projects\Structured Light Compressive Sensing\data\Shooting - 5.5. - FER - dng\Measurements\',num2str(phase_no),'\'],'.dng', crop_roi, bayer_cfa_color, plot_images.bool, 'rggb');
 %     measurements{phase_no}=removeBackgroundNoise(measurements{phase_no}, backgrounds_avg);
-% end
+end
 %
 % save measurements variable because its loading time is too long
 % save('measurements', 'measurements')
 
-load measurements
+% load measurements
 
 %% BLOB DETECTION AND PROCESSING
 % using morphological operations and blob detection algorithm to detect
@@ -167,7 +167,7 @@ for phase_no=1:no_of_phases
             [a,d,v,h]=dwt2(measurements_block{p}, 'haar');
             treshold_value=median(abs(d(:)))/0.6745;
             
-            measurements_block{p}=wthresh(measurements_block{p}, 'h', 4*treshold_value);
+%             measurements_block{p}=wthresh(measurements_block{p}, 'h', 4*treshold_value);
             
         end
         
@@ -211,7 +211,7 @@ for phase_no=1:no_of_phases
                 [a,d,v,h]=dwt2(calib_measurements_crop{no_measurements}{p}, 'haar');
                 treshold_value=median(abs(d(:)))/0.6745;
                 
-                calib_measurements_crop{no_measurements}{p}=wthresh(calib_measurements_crop{no_measurements}{p}, 'h', 4*treshold_value);
+%                 calib_measurements_crop{no_measurements}{p}=wthresh(calib_measurements_crop{no_measurements}{p}, 'h', 4*treshold_value);
                 
                 calib_measurement_sum{no_measurements}(p)=sum(calib_measurements_crop{no_measurements}{p}(:));
                 
@@ -270,17 +270,17 @@ for phase_no=1:no_of_phases
         %% COMPRESSIVE SENSING
         
         % number of measurements used in image reconstruction
-        no_of_measurements_for_reconstruction=42;
+        no_of_measurements_for_reconstruction=40;
         
         phi_r=phi(1:no_of_measurements_for_reconstruction,:);
         
         % defining matrix theta y=theta*x
         theta = full(phi_r*psi_inv); % Phi_m * Psi^(-1)
         
-%         subimage_estimation = L1OptimizationCVX(y, psi, psi_inv, theta, no_of_measurements_for_reconstruction,S);
+        subimage_estimation = L1OptimizationCVX(y, psi, psi_inv, theta, no_of_measurements_for_reconstruction,S);
 
 
-        subimage_estimation = L1OptimizationSeDuMi(y,  psi, psi_inv, theta, no_of_measurements_for_reconstruction);
+%         subimage_estimation = L1OptimizationSeDuMi(y,  psi, psi_inv, theta, no_of_measurements_for_reconstruction);
         
         subimage_estimations{phase_no}{bbox_no} = (reshape(subimage_estimation, 8, 8));
 

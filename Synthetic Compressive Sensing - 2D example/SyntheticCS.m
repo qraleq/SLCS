@@ -34,7 +34,7 @@ addpath('utilities')
 addpath('data')
 
 image_est = [];
-psi_type='dct';
+psi_type='dwt';
 wavelet_type='haar';
 
 % Different optimization packages
@@ -43,7 +43,7 @@ method = 'SeDuMi'; % Options: 'cvx', 'SeDuMi'
 % Choose block size
 block_size = 8;
 
-no_of_measurements  = 64; % desired M << N
+no_of_measurements  = 32; % desired M << N
 sparsity_percentage = 0.9999999999; % percentage of coefficients to be left
 
 %% In the CS problem, linear bases are usually defined by matrices Phi and Psi
@@ -72,7 +72,7 @@ image=sparsifyImage(image,[], sparsity_percentage);
 figure
 imshow(image, 'InitialMagnification', 'fit'), title('Original image - resized and sparsified'), colormap gray, axis image
 
-
+%%
 tic
 
 for k=1:block_size:rows-block_size+1
